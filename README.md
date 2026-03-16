@@ -126,7 +126,7 @@ karmic-hrms
 │   └── utils
 │       └── logger.py
 │
-├── Screenshots V1
+|
 ├── LICENSE
 └── README.md
 ```
