@@ -62,6 +62,7 @@
             <li><button type="button" class="tab-btn active" data-tab="overview">Overview</button></li>
             <li><button type="button" class="tab-btn" data-tab="skills">Skills</button></li>
             <li><button type="button" class="tab-btn" data-tab="evidence">Evidence</button></li>
+            <li><button type="button" class="tab-btn" data-tab="workforce">Workforce Intelligence</button></li>
           </ul>
 
           <section id="tab-overview" class="tab-panel active mt-3">
@@ -107,6 +108,103 @@
               <summary>Compensation Evidence (<span id="cComp">0</span>)</summary>
               <ul id="eComp" class="mb-0 mt-2"><li class="empty">No evidence available</li></ul>
             </details>
+          </section>
+
+          <section id="tab-workforce" class="tab-panel mt-3">
+            <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between">
+              <div class="small text-muted">
+                Uses detected resume skills + your project/team inputs to run the 3-agent workforce pipeline.
+              </div>
+              <button id="runWorkforceBtn" type="button" class="btn btn-outline-secondary btn-sm">
+                Run Workforce Intelligence
+              </button>
+            </div>
+
+            <div class="row g-2 mt-2">
+              <div class="col-12">
+                <label class="form-label small text-muted mb-1">Employee Skills (auto-filled from resume)</label>
+                <textarea id="wfEmployeeSkills" class="form-control wf-textarea" rows="2" placeholder="Analyze a resume first to auto-fill skills."></textarea>
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label small text-muted mb-1">Project Name</label>
+                <input id="wfProjectName" class="form-control" type="text" placeholder="e.g., Fraud Detection System">
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label small text-muted mb-1">Team Name</label>
+                <input id="wfTeamName" class="form-control" type="text" placeholder="e.g., Risk ML">
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label small text-muted mb-1">Project Skills Required (comma-separated)</label>
+                <textarea id="wfProjectSkills" class="form-control wf-textarea" rows="2" placeholder="Python, Machine Learning, SQL"></textarea>
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label small text-muted mb-1">Team Skills (comma-separated)</label>
+                <textarea id="wfTeamSkills" class="form-control wf-textarea" rows="2" placeholder="Python, SQL, MLOps, Communication"></textarea>
+              </div>
+              <div class="col-12">
+                <label class="form-label small text-muted mb-1">Team Values (comma-separated)</label>
+                <input id="wfTeamValues" class="form-control" type="text" placeholder="collaboration, ownership">
+              </div>
+              <div class="col-12">
+                <div class="form-check mt-1">
+                  <input id="wfLeadershipNeeded" class="form-check-input" type="checkbox">
+                  <label class="form-check-label small text-muted" for="wfLeadershipNeeded">Leadership needed for this team</label>
+                </div>
+              </div>
+            </div>
+
+            <div class="small text-muted mt-3">Behavioral signals (auto-filled from resume analysis)</div>
+            <div class="row g-2 mt-1">
+              <div class="col-12 col-md-4">
+                <div class="metric-card">
+                  <div class="label">Primary Intent</div>
+                  <div id="wfIntent" class="value">-</div>
+                </div>
+              </div>
+              <div class="col-12 col-md-4">
+                <div class="metric-card">
+                  <div class="label">Leadership Score</div>
+                  <div id="wfLeadership" class="value">0.00</div>
+                </div>
+              </div>
+              <div class="col-12 col-md-4">
+                <div class="metric-card">
+                  <div class="label">Compensation Index</div>
+                  <div id="wfComp" class="value">0.00</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="small text-muted mt-3">3-agent results</div>
+            <div class="row g-2 mt-1">
+              <div class="col-12 col-md-4">
+                <div class="metric-card">
+                  <div class="label">Predicted Job Role</div>
+                  <div id="wfRole" class="value">-</div>
+                  <div class="small text-muted">Confidence: <span id="wfRoleConf">0%</span></div>
+                </div>
+              </div>
+              <div class="col-12 col-md-4">
+                <div class="metric-card">
+                  <div class="label">Project Skill Match</div>
+                  <div id="wfMatch" class="value">0%</div>
+                  <div class="small text-muted">Missing: <span id="wfMissing">-</span></div>
+                </div>
+              </div>
+              <div class="col-12 col-md-4">
+                <div class="metric-card">
+                  <div class="label">Team Compatibility</div>
+                  <div id="wfCompat" class="value">0%</div>
+                  <div class="small text-muted">Skill/Behavior: <span id="wfCompatParts">-</span></div>
+                </div>
+              </div>
+              <div class="col-12">
+                <details class="evidence-box">
+                  <summary>Compatibility Notes (<span id="wfNotesCount">0</span>)</summary>
+                  <ul id="wfNotes" class="mb-0 mt-2"><li class="empty">No notes</li></ul>
+                </details>
+              </div>
+            </div>
           </section>
         </section>
       </div>

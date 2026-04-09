@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import lru_cache
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, status
@@ -11,26 +12,56 @@ from resume_agent.models.schema import (
 )
 from resume_agent.services.job_role_detection import JobRoleDetectionAgent
 from resume_agent.services.project_skill_match import ProjectSkillMatchAgent
-from resume_agent.services.team_compatibility import BehavioralSignals, TeamCompatibilityAgent, TeamProfile
+from resume_agent.services.team_compatibility import (
+    BehavioralSignals,
+    TeamCompatibilityAgent,
+    TeamProfile,
+)
+from resume_agent.utils.logger import logger
 
 router = APIRouter(prefix="/api/v1/workforce", tags=["workforce-intelligence"])
 
+
+# ---------------------------------------------------------------------------
+# Agent cache — initialised once per process, not on every request.
+# ---------------------------------------------------------------------------
+
+@lru_cache(maxsize=1)
+def _get_role_agent() -> JobRoleDetectionAgent:
+    return JobRoleDetectionAgent(dataset_path=_resolve_job_role_dataset())
+
+
+@lru_cache(maxsize=1)
+def _get_match_agent() -> ProjectSkillMatchAgent:
+    return ProjectSkillMatchAgent()
+
+
+@lru_cache(maxsize=1)
+def _get_team_agent() -> TeamCompatibilityAgent:
+    return TeamCompatibilityAgent()
+
+
+# ---------------------------------------------------------------------------
+# Endpoint
+# ---------------------------------------------------------------------------
 
 @router.post(
     "/intelligence",
     response_model=WorkforceIntelligenceResponse,
     responses={400: {"model": ErrorResponse}, 500: {"model": ErrorResponse}},
 )
-async def workforce_intelligence(payload: WorkforceIntelligenceRequest) -> WorkforceIntelligenceResponse:
+async def workforce_intelligence(
+    payload: WorkforceIntelligenceRequest,
+) -> WorkforceIntelligenceResponse:
     try:
-        dataset_path = _resolve_job_role_dataset()
+        role_agent  = _get_role_agent()
+        match_agent = _get_match_agent()
+        team_agent  = _get_team_agent()
 
-        role_agent = JobRoleDetectionAgent(dataset_path=dataset_path)
-        match_agent = ProjectSkillMatchAgent()
-        team_agent = TeamCompatibilityAgent()
-
-        role_pred = role_agent.predict(payload.employee_skills)
-        skill_match = match_agent.match(payload.employee_skills, payload.project_skills_required)
+        role_pred   = role_agent.predict(payload.employee_skills)
+        skill_match = match_agent.match(
+            payload.employee_skills, payload.project_skills_required
+        )
 
         team = TeamProfile(
             name=payload.team.name,
@@ -45,6 +76,13 @@ async def workforce_intelligence(payload: WorkforceIntelligenceRequest) -> Workf
         )
         compat = team_agent.assess(payload.employee_skills, team=team, signals=signals)
 
+        logger.info(
+            "Workforce intelligence: employee=%s role=%s (conf=%.2f)",
+            payload.employee_name or "anonymous",
+            role_pred.role,
+            role_pred.confidence,
+        )
+
         return WorkforceIntelligenceResponse(
             employee_name=payload.employee_name,
             project_name=payload.project_name,
@@ -52,6 +90,7 @@ async def workforce_intelligence(payload: WorkforceIntelligenceRequest) -> Workf
                 "role": role_pred.role,
                 "confidence": role_pred.confidence,
                 "backend": role_pred.backend,
+                "top_alternatives": role_pred.top_alternatives,
             },
             project_skill_match={
                 "match_score": skill_match.match_score,
@@ -65,32 +104,53 @@ async def workforce_intelligence(payload: WorkforceIntelligenceRequest) -> Workf
                 "notes": compat.notes,
             },
         )
+
     except FileNotFoundError as exc:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(exc),
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
         ) from exc
     except Exception as exc:
+        logger.exception("Unexpected error during workforce intelligence")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal server error during workforce intelligence: {exc}",
         ) from exc
 
 
+# ---------------------------------------------------------------------------
+# Dataset resolution
+# ---------------------------------------------------------------------------
+
+@lru_cache(maxsize=1)
 def _resolve_job_role_dataset() -> Path:
     """
-    Try common dataset locations in this workspace.
+    Resolve the dataset path once and cache it.  Searches common locations
+    relative to the project root.
     """
     here = Path(__file__).resolve()
     candidates = [
-        # workspace root: `data/job_role_dataset.csv`
         here.parents[3] / "data" / "job_role_dataset.csv",
-        # inside app folder (some setups)
         here.parents[2] / "data" / "job_role_dataset.csv",
-        # prototype folder copy
         here.parents[3] / "agents" / "job_role_dataset.csv",
     ]
     for p in candidates:
         if p.exists():
+            logger.info("Job role dataset resolved: %s", p)
             return p
-    raise FileNotFoundError(f"Job role dataset not found: {candidates[0]}")
+    raise FileNotFoundError(
+        f"Job role dataset not found. Searched: {[str(c) for c in candidates]}"
+    )
+
+
+def warm_up() -> None:
+    """
+    Pre-initialise all workforce agents.  Call from the application lifespan
+    so the first real request is not penalised by model loading time.
+    """
+    try:
+        _get_role_agent()
+        _get_match_agent()
+        _get_team_agent()
+        logger.info("Workforce agents warmed up successfully")
+    except Exception as exc:
+        logger.warning("Workforce warm-up failed (non-fatal): %s", exc)

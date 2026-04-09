@@ -42,6 +42,29 @@
   const cLead = document.getElementById('cLead');
   const cComp = document.getElementById('cComp');
 
+  // Workforce intelligence (3-agent pipeline)
+  const runWorkforceBtn = document.getElementById('runWorkforceBtn');
+  const wfEmployeeSkills = document.getElementById('wfEmployeeSkills');
+  const wfProjectName = document.getElementById('wfProjectName');
+  const wfTeamName = document.getElementById('wfTeamName');
+  const wfProjectSkills = document.getElementById('wfProjectSkills');
+  const wfTeamSkills = document.getElementById('wfTeamSkills');
+  const wfTeamValues = document.getElementById('wfTeamValues');
+  const wfLeadershipNeeded = document.getElementById('wfLeadershipNeeded');
+
+  const wfIntent = document.getElementById('wfIntent');
+  const wfLeadership = document.getElementById('wfLeadership');
+  const wfComp = document.getElementById('wfComp');
+
+  const wfRole = document.getElementById('wfRole');
+  const wfRoleConf = document.getElementById('wfRoleConf');
+  const wfMatch = document.getElementById('wfMatch');
+  const wfMissing = document.getElementById('wfMissing');
+  const wfCompat = document.getElementById('wfCompat');
+  const wfCompatParts = document.getElementById('wfCompatParts');
+  const wfNotes = document.getElementById('wfNotes');
+  const wfNotesCount = document.getElementById('wfNotesCount');
+
   const state = {
     technical: [],
     soft: [],
@@ -139,6 +162,37 @@
     target.innerHTML = items.map((x) => `<li>${x}</li>`).join('');
   }
 
+  function parseCsvList(text) {
+    return String(text || '')
+      .split(',')
+      .map((x) => x.trim())
+      .filter((x) => x.length > 0);
+  }
+
+  function fmtPct01(v) {
+    const pct = toPct(v);
+    return `${pct}%`;
+  }
+
+  function renderNotes(target, items) {
+    if (!Array.isArray(items) || !items.length) {
+      target.innerHTML = '<li class="empty">No notes</li>';
+      return;
+    }
+    target.innerHTML = items.map((x) => `<li>${x}</li>`).join('');
+  }
+
+  function setWorkforceEmpty() {
+    wfRole.textContent = '-';
+    wfRoleConf.textContent = '0%';
+    wfMatch.textContent = '0%';
+    wfMissing.textContent = '-';
+    wfCompat.textContent = '0%';
+    wfCompatParts.textContent = '-';
+    wfNotesCount.textContent = '0';
+    wfNotes.innerHTML = '<li class="empty">No notes</li>';
+  }
+
   function renderResult(data) {
     state.current = data;
     const skills = data && data.skills ? data.skills : {};
@@ -169,6 +223,13 @@
     renderEvidence(eComp, compEv);
     cLead.textContent = String(leadEv.length);
     cComp.textContent = String(compEv.length);
+
+    // Autofill workforce tab inputs + behavioral signals
+    const allSkills = [...state.technical, ...state.soft].filter(Boolean);
+    if (wfEmployeeSkills) wfEmployeeSkills.value = allSkills.join(', ');
+    if (wfIntent) wfIntent.textContent = intent.primary_intent || '-';
+    if (wfLeadership) wfLeadership.textContent = toTwo(lead.score);
+    if (wfComp) wfComp.textContent = toTwo(comp.score);
   }
 
   function resetView() {
@@ -197,6 +258,12 @@
     state.current = null;
     state.technical = [];
     state.soft = [];
+
+    if (wfEmployeeSkills) wfEmployeeSkills.value = '';
+    if (wfIntent) wfIntent.textContent = '-';
+    if (wfLeadership) wfLeadership.textContent = '0.00';
+    if (wfComp) wfComp.textContent = '0.00';
+    setWorkforceEmpty();
   }
 
   function isAllowedFile(file) {
@@ -442,6 +509,105 @@
       submitBtn.textContent = 'Analyze Resume';
     }
   });
+
+  if (runWorkforceBtn) {
+    runWorkforceBtn.addEventListener('click', async () => {
+      const employeeSkills = parseCsvList(wfEmployeeSkills ? wfEmployeeSkills.value : '');
+      const projectSkillsRequired = parseCsvList(wfProjectSkills ? wfProjectSkills.value : '');
+      const teamSkills = parseCsvList(wfTeamSkills ? wfTeamSkills.value : '');
+      const teamValues = parseCsvList(wfTeamValues ? wfTeamValues.value : '');
+
+      if (!employeeSkills.length) {
+        showToast('Analyze a resume (or enter skills) first', 'error');
+        switchTab('workforce');
+        return;
+      }
+      if (!projectSkillsRequired.length) {
+        showToast('Enter project skills required', 'error');
+        switchTab('workforce');
+        return;
+      }
+      if (!teamSkills.length) {
+        showToast('Enter team skills', 'error');
+        switchTab('workforce');
+        return;
+      }
+
+      runWorkforceBtn.disabled = true;
+      runWorkforceBtn.textContent = 'Running...';
+      setStatus('Running workforce intelligence (3-agent pipeline)...', false);
+      setWorkforceEmpty();
+      switchTab('workforce');
+
+      try {
+        // Pull behavioral signals from current resume analysis if present.
+        const primaryIntent = state.current && state.current.intent_profile ? state.current.intent_profile.primary_intent : null;
+        const leadershipScore = state.current && state.current.leadership_analysis ? state.current.leadership_analysis.score : null;
+        const compensationEmphasis = state.current && state.current.compensation_emphasis_index ? state.current.compensation_emphasis_index.score : null;
+
+        const payload = {
+          employee_name: state.fileName ? state.fileName.replace(/\.(pdf|docx)$/i, '') : null,
+          employee_skills: employeeSkills,
+          project_name: wfProjectName ? (wfProjectName.value || null) : null,
+          project_skills_required: projectSkillsRequired,
+          team: {
+            name: wfTeamName ? (wfTeamName.value || 'Team') : 'Team',
+            skills: teamSkills,
+            values: teamValues,
+            leadership_needed: Boolean(wfLeadershipNeeded && wfLeadershipNeeded.checked),
+          },
+          primary_intent: primaryIntent,
+          leadership_score: leadershipScore,
+          compensation_emphasis: compensationEmphasis,
+        };
+
+        const res = await fetch('/api/v1/workforce/intelligence', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        const text = await res.text();
+        const data = parseJson(text) || { detail: text };
+        outputEl.textContent = JSON.stringify(data, null, 2);
+
+        if (!res.ok) {
+          setStatus('Workforce intelligence failed. Review details in JSON panel.', true);
+          showToast('Workforce failed', 'error');
+          return;
+        }
+
+        // Render results on Workforce tab
+        wfRole.textContent = (data.job_role && data.job_role.role) ? data.job_role.role : '-';
+        wfRoleConf.textContent = data.job_role ? fmtPct01(data.job_role.confidence) : '0%';
+
+        wfMatch.textContent = data.project_skill_match ? fmtPct01(data.project_skill_match.match_score) : '0%';
+        const missing = data.project_skill_match && Array.isArray(data.project_skill_match.missing_skills) ? data.project_skill_match.missing_skills : [];
+        wfMissing.textContent = missing.length ? missing.join(', ') : 'None';
+
+        wfCompat.textContent = data.team_compatibility ? fmtPct01(data.team_compatibility.overall_score) : '0%';
+        if (data.team_compatibility) {
+          wfCompatParts.textContent = `${fmtPct01(data.team_compatibility.skill_overlap_score)} / ${fmtPct01(data.team_compatibility.behavioral_alignment_score)}`;
+          const notes = Array.isArray(data.team_compatibility.notes) ? data.team_compatibility.notes : [];
+          wfNotesCount.textContent = String(notes.length);
+          renderNotes(wfNotes, notes);
+        } else {
+          wfCompatParts.textContent = '-';
+          wfNotesCount.textContent = '0';
+          renderNotes(wfNotes, []);
+        }
+
+        setStatus('Workforce intelligence completed successfully.', false);
+        showToast('Workforce complete', 'ok');
+      } catch (_) {
+        setStatus('Workforce intelligence request failed in browser.', true);
+        showToast('Workforce failed', 'error');
+      } finally {
+        runWorkforceBtn.disabled = false;
+        runWorkforceBtn.textContent = 'Run Workforce Intelligence';
+      }
+    });
+  }
 
   const initialTheme = localStorage.getItem('resume_agent_theme') || 'light';
   applyTheme(initialTheme);

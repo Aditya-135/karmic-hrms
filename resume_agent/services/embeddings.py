@@ -17,12 +17,16 @@ class EmbeddingBackend:
 
 class SentenceTransformersBackend(EmbeddingBackend):
     def __init__(self, model_name: str) -> None:
-        super().__init__(name=f"sentence-transformers:{model_name}")
+        # EmbeddingBackend is a frozen=True slots=True dataclass. In Python 3.10,
+        # the slots class-recreation mechanism breaks super().__init__() and any
+        # self.x = ... assignment (inherited frozen __setattr__ calls a broken super()).
+        # Use object.__setattr__ directly to bypass both issues.
+        object.__setattr__(self, "name", f"sentence-transformers:{model_name}")
         from sentence_transformers import SentenceTransformer  # lazy import
 
         # Offline-safe: never download models at runtime.
         # If the model isn't already cached locally, this will raise and we fall back.
-        self._model = SentenceTransformer(model_name, local_files_only=True)
+        object.__setattr__(self, "_model", SentenceTransformer(model_name, local_files_only=True))
 
     def encode(self, texts: list[str]) -> np.ndarray:
         emb = self._model.encode(texts, normalize_embeddings=True)
@@ -36,7 +40,7 @@ class TokenOverlapBackend(EmbeddingBackend):
     """
 
     def __init__(self) -> None:
-        super().__init__(name="token-overlap")
+        object.__setattr__(self, "name", "token-overlap")
 
     @staticmethod
     def _tokenize(text: str) -> list[str]:

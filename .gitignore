@@ -3,8 +3,17 @@ __pycache__/
 *.pyc
 *.pyo
 
-# Virtual environment
+# Virtual environments
 venv/
+newvenv/
+env/
+.venv/
+
+# Trained ML model binaries (regenerated at runtime)
+*.pkl
+
+# Dataset files (managed separately)
+data/
 
 # VSCode
 .vscode/

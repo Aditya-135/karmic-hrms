@@ -1,4 +1,4 @@
-﻿from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field
 
 
 class SkillsResult(BaseModel):
@@ -17,6 +17,9 @@ class LeadershipAnalysis(BaseModel):
     score: float = Field(ge=0.0, le=1.0)
     evidence: list[str] = Field(default_factory=list)
     confidence: float = Field(ge=0.0, le=1.0)
+    # Stress / pressure signals detected in the resume text (backward-compatible).
+    stress_indicators: list[str] = Field(default_factory=list)
+    stress_score: float = Field(default=0.0, ge=0.0, le=1.0)
 
 
 class CompensationEmphasisIndex(BaseModel):
@@ -30,6 +33,55 @@ class ResumeAnalysisResponse(BaseModel):
     intent_profile: IntentProfile
     leadership_analysis: LeadershipAnalysis
     compensation_emphasis_index: CompensationEmphasisIndex
+
+
+class JobRolePrediction(BaseModel):
+    role: str
+    confidence: float = Field(ge=0.0, le=1.0)
+    backend: str
+    # Next-best predictions (backward-compatible).
+    top_alternatives: list[dict] = Field(default_factory=list)
+
+
+class ProjectSkillMatchResult(BaseModel):
+    match_score: float = Field(ge=0.0, le=1.0)
+    missing_skills: list[str] = Field(default_factory=list)
+    backend: str
+
+
+class TeamCompatibilityResult(BaseModel):
+    overall_score: float = Field(ge=0.0, le=1.0)
+    skill_overlap_score: float = Field(ge=0.0, le=1.0)
+    behavioral_alignment_score: float = Field(ge=0.0, le=1.0)
+    notes: list[str] = Field(default_factory=list)
+
+
+class TeamProfile(BaseModel):
+    name: str = "Team"
+    skills: list[str] = Field(default_factory=list)
+    values: list[str] = Field(default_factory=list)
+    leadership_needed: bool = False
+
+
+class WorkforceIntelligenceRequest(BaseModel):
+    employee_name: str | None = None
+    employee_skills: list[str] = Field(default_factory=list)
+    project_name: str | None = None
+    project_skills_required: list[str] = Field(default_factory=list)
+    team: TeamProfile = Field(default_factory=TeamProfile)
+
+    # Optional behavioral signals (if you already ran resume analysis)
+    primary_intent: str | None = None
+    leadership_score: float | None = Field(default=None, ge=0.0, le=1.0)
+    compensation_emphasis: float | None = Field(default=None, ge=0.0, le=1.0)
+
+
+class WorkforceIntelligenceResponse(BaseModel):
+    employee_name: str | None = None
+    project_name: str | None = None
+    job_role: JobRolePrediction
+    project_skill_match: ProjectSkillMatchResult
+    team_compatibility: TeamCompatibilityResult
 
 
 class ErrorResponse(BaseModel):
