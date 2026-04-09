@@ -23,7 +23,15 @@
       </div>
     </section>
 
-    <div class="row g-3">
+    <div class="mb-3">
+      <ul class="nav nav-tabs gap-2" id="mainTabs">
+        <li><button type="button" class="main-tab-btn active" data-main-tab="resume">Resume Analysis</button></li>
+        <li><button type="button" class="main-tab-btn" data-main-tab="behavioral">Behavioral Analysis</button></li>
+        <li><button type="button" class="main-tab-btn" data-main-tab="stress">Stress / Workload</button></li>
+      </ul>
+    </div>
+
+    <div class="row g-3" id="resume-tab">
       <div class="col-12 col-xl-7">
         <section class="panel p-3 p-lg-4">
           <form id="uploadForm" action="/web/analyze" method="post" enctype="multipart/form-data">
@@ -123,9 +131,377 @@
         </section>
       </div>
     </div>
+
+    <div class="row g-3" id="behavioral-tab" style="display:none;">
+      <div class="col-12 col-xl-7">
+        <section class="panel p-3 p-lg-4">
+          <form id="behavioralForm">
+            <h5 class="mb-4 fw-bold">🎯 Team Recruitment & Compatibility Analysis</h5>
+            
+            <!-- Candidate Info -->
+            <div class="row g-3 mb-4">
+              <div class="col-12">
+                <label class="form-label fw-semibold">📝 Candidate Name *</label>
+                <input type="text" id="candidateName" class="form-control" placeholder="e.g., John Smith" required>
+              </div>
+              <div class="col-12">
+                <label class="form-label fw-semibold">💼 Target Job Role *</label>
+                <select id="jobRole" class="form-select" required>
+                  <option value="">Select a role...</option>
+                  <option value="Engineer">Engineer</option>
+                  <option value="Manager">Manager</option>
+                  <option value="Designer">Designer</option>
+                  <option value="Sales">Sales</option>
+                  <option value="HR">HR</option>
+                  <option value="Data Analyst">Data Analyst</option>
+                  <option value="Product Manager">Product Manager</option>
+                </select>
+              </div>
+            </div>
+
+            <hr class="my-4">
+
+            <!-- OCEAN Personality Questions -->
+            <div class="mb-4">
+              <h6 class="fw-semibold mb-3">🧠 OCEAN Personality Assessment</h6>
+              <div id="oceanQuestions"></div>
+              <small class="text-muted d-block mt-2">Answer all questions by selecting the option that best describes you.</small>
+            </div>
+
+            <hr class="my-4">
+
+            <!-- Team Members -->
+            <div class="mb-4">
+              <label class="form-label fw-semibold">👥 Current Team Members (for compatibility analysis)</label>
+              <div id="teamMembersContainer" class="mb-3">
+                <div class="alert alert-info small mb-2">
+                  Add existing team members to analyze compatibility with this candidate
+                </div>
+                <div id="teamMembersList"></div>
+              </div>
+              <button type="button" id="addTeamMemberBtn" class="btn btn-sm btn-outline-primary">+ Add Team Member</button>
+            </div>
+
+            <hr class="my-4">
+
+            <!-- Open-Ended Response -->
+            <div class="mb-4">
+              <label class="form-label fw-semibold">💬 Additional Comments</label>
+              <textarea id="textAnswer" class="form-control" rows="3" placeholder="Share any additional context or observations about this candidate..."></textarea>
+            </div>
+
+            <div class="d-flex flex-wrap gap-2">
+              <button id="analyzeBehavioralBtn" type="submit" class="btn btn-primary px-4">🚀 Analyze & Generate Report</button>
+              <button id="clearBehavioralBtn" type="button" class="btn btn-outline-secondary">Clear Form</button>
+            </div>
+          </form>
+
+          <div id="behavioralStatus" class="status mt-3 status ok" style="display:none;">Analysis in progress...</div>
+
+          <div id="behavioralMetrics" class="mt-4" style="display:none;">
+            <ul class="nav nav-tabs nav-fill gap-1" id="behavioralTabs">
+              <li><button type="button" class="behavioral-tab-btn active" data-tab="personality">Personality</button></li>
+              <li><button type="button" class="behavioral-tab-btn" data-tab="role-fit">Role Fit</button></li>
+              <li><button type="button" class="behavioral-tab-btn" data-tab="team">Team Fit</button></li>
+              <li><button type="button" class="behavioral-tab-btn" data-tab="summary">Summary</button></li>
+            </ul>
+
+            <!-- Personality Tab -->
+            <section id="tab-personality" class="tab-panel active mt-3">
+              <div class="row g-2">
+                <div class="col-6"><div class="ocean-card"><div class="ocean-icon">O</div><div class="label">Openness</div><div id="bOpenness" class="value">0</div></div></div>
+                <div class="col-6"><div class="ocean-card"><div class="ocean-icon">C</div><div class="label">Conscientiousness</div><div id="bConscientiousness" class="value">0</div></div></div>
+                <div class="col-6"><div class="ocean-card"><div class="ocean-icon">E</div><div class="label">Extraversion</div><div id="bExtraversion" class="value">0</div></div></div>
+                <div class="col-6"><div class="ocean-card"><div class="ocean-icon">A</div><div class="label">Agreeableness</div><div id="bAgreeableness" class="value">0</div></div></div>
+                <div class="col-12"><div class="ocean-card"><div class="ocean-icon">S</div><div class="label">Emotional Stability</div><div id="bEmotionalStability" class="value">0</div></div></div>
+              </div>
+            </section>
+
+            <!-- Role Fit Tab -->
+            <section id="tab-role-fit" class="tab-panel mt-3">
+              <div class="mb-3">
+                <div class="metric-card">
+                  <div class="label">Role Fit Score</div>
+                  <div id="bRoleScore" class="value large">0</div>
+                </div>
+              </div>
+              <div class="mb-3">
+                <strong class="d-block mb-2">Role Analysis:</strong>
+                <div id="bRoleRec" class="small"><span class="text-muted">No recommendations</span></div>
+              </div>
+            </section>
+
+            <!-- Team Fit Tab -->
+            <section id="tab-team-fit" class="tab-panel mt-3">
+              <div class="row g-2 mb-3">
+                <div class="col-6"><div class="metric-card"><div class="label">Compatibility</div><div id="bCompatScore" class="value">0%</div></div></div>
+                <div class="col-6"><div class="metric-card"><div class="label">Team Size</div><div id="bTeamSize" class="value">-</div></div></div>
+              </div>
+              <div class="mb-3">
+                <strong class="d-block mb-2">✅ Synergies:</strong>
+                <div id="bSynergies" class="small"><span class="text-muted">No team yet</span></div>
+              </div>
+              <div class="mb-3">
+                <strong class="d-block mb-2">⚠️  Potential Conflicts:</strong>
+                <div id="bConflicts" class="small"><span class="text-muted">No team yet</span></div>
+              </div>
+              <div class="mb-3">
+                <strong class="d-block mb-2">💡 Recommendations:</strong>
+                <div id="bTeamRec" class="small"><span class="text-muted">No team yet</span></div>
+              </div>
+            </section>
+
+            <!-- Summary Tab -->
+            <section id="tab-summary" class="tab-panel mt-3">
+              <div class="metric-card mb-3 bg-light">
+                <div class="label">Behavioral Fit Score</div>
+                <div id="bFitScore" class="value large">0</div>
+              </div>
+              <div class="metric-card mb-3">
+                <div class="label">Overall Assessment</div>
+                <div id="bTeamFit" class="value">-</div>
+              </div>
+              <div class="mb-3">
+                <strong class="d-block mb-2">⚠️  Risk Flags:</strong>
+                <div id="bRiskFlags"><span class="text-muted">No risks identified</span></div>
+              </div>
+              <div class="mb-3">
+                <strong class="d-block mb-2">📋 HR Summary:</strong>
+                <div id="bSummary" class="text-muted">-</div>
+              </div>
+            </section>
+          </div>
+        </section>
+      </div>
+
+      <div class="col-12 col-xl-5">
+        <section class="panel p-3 p-lg-4 h-100 d-flex flex-column">
+          <div class="d-flex flex-wrap gap-2 mb-2">
+            <button id="copyBehavioralBtn" type="button" class="btn btn-outline-secondary btn-sm">📋 Copy JSON</button>
+            <button id="downloadBehavioralBtn" type="button" class="btn btn-outline-secondary btn-sm">💾 Download</button>
+          </div>
+          <pre id="behavioralOutput" class="flex-grow-1 output-panel">{"message": "Fill the form and analyze to see results"}</pre>
+        </section>
+      </div>
+    </div>
+
+    <!-- STRESS / WORKLOAD ANALYSIS TAB -->
+    <div class="row g-3" id="stress-tab" style="display:none;">
+      <div class="col-12 col-xl-7">
+        <section class="panel p-3 p-lg-4">
+          <h5 class="mb-4 fw-bold">📊 Employee Stress & Workload Analysis</h5>
+          
+          <form id="stressForm">
+            <div class="row g-3">
+              <div class="col-6">
+                <label class="form-label fw-semibold">Tasks Assigned *</label>
+                <input type="number" id="tasksAssigned" class="form-control" min="0" placeholder="e.g., 12" required>
+              </div>
+              <div class="col-6">
+                <label class="form-label fw-semibold">Tasks Completed *</label>
+                <input type="number" id="tasksCompleted" class="form-control" min="0" placeholder="e.g., 8" required>
+              </div>
+              <div class="col-6">
+                <label class="form-label fw-semibold">Overdue Tasks *</label>
+                <input type="number" id="overdueTasks" class="form-control" min="0" placeholder="e.g., 3" required>
+              </div>
+              <div class="col-6">
+                <label class="form-label fw-semibold">Working Hours/Day *</label>
+                <input type="number" id="workingHours" class="form-control" min="0" max="24" step="0.5" placeholder="e.g., 10" required>
+              </div>
+              <div class="col-6">
+                <label class="form-label fw-semibold">Meetings Per Day *</label>
+                <input type="number" id="meetingsPerDay" class="form-control" min="0" placeholder="e.g., 6" required>
+              </div>
+              <div class="col-6">
+                <label class="form-label fw-semibold">Meeting Hours *</label>
+                <input type="number" id="meetingHours" class="form-control" min="0" max="8" step="0.5" placeholder="e.g., 5" required>
+              </div>
+              <div class="col-12">
+                <label class="form-label fw-semibold">Working on Weekends</label>
+                <select id="weekendWork" class="form-select" required>
+                  <option value="0">No</option>
+                  <option value="1">Yes</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="d-flex flex-wrap gap-2 mt-4">
+              <button id="analyzeStressBtn" type="submit" class="btn btn-primary px-4">🚀 Analyze Stress</button>
+              <button id="clearStressBtn" type="button" class="btn btn-outline-secondary">Clear</button>
+            </div>
+          </form>
+
+          <div id="stressStatus" class="status mt-3" style="display:none;"></div>
+
+          <!-- Results Section -->
+          <div id="stressResults" style="display:none;" class="mt-4">
+            <div class="row g-2 mb-4">
+              <div class="col-6">
+                <div class="metric-card">
+                  <div class="label">Stress Level</div>
+                  <div id="stressLevelDisplay" class="value large" style="padding: 1rem 0; font-size: 1.5rem; font-weight: bold;">-</div>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="metric-card">
+                  <div class="label">Risk Level</div>
+                  <div id="riskLevelDisplay" class="value large" style="padding: 1rem 0; font-size: 1.5rem; font-weight: bold;">-</div>
+                </div>
+              </div>
+              <div class="col-4">
+                <div class="metric-card">
+                  <div class="label">Workload Score</div>
+                  <div id="workloadScore" class="value">0/100</div>
+                </div>
+              </div>
+              <div class="col-4">
+                <div class="metric-card">
+                  <div class="label">Meeting Load</div>
+                  <div id="meetingLoadScore" class="value">0/100</div>
+                </div>
+              </div>
+              <div class="col-4">
+                <div class="metric-card">
+                  <div class="label">Task Completion</div>
+                  <div id="taskCompletion" class="value">0%</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Insights -->
+            <div class="mb-4">
+              <strong class="d-block mb-2">🔍 Key Insights:</strong>
+              <div id="insightsList" class="small"></div>
+            </div>
+
+            <!-- Recommendations -->
+            <div class="mb-4">
+              <strong class="d-block mb-2">💡 Recommendations:</strong>
+              <div id="recommendationsList" class="small"></div>
+            </div>
+
+            <!-- Future Risk -->
+            <div class="alert alert-warning" id="futureRiskAlert" style="display:none;"></div>
+          </div>
+        </section>
+      </div>
+
+      <div class="col-12 col-xl-5">
+        <section class="panel p-3 p-lg-4">
+          <h5 class="mb-3 fw-bold">📈 Workload Trends</h5>
+          <div style="position: relative; height: 300px; background: var(--bg0);">
+            <canvas id="stressChart"></canvas>
+            <div id="chartPlaceholder" class="text-center text-muted py-5" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center;">
+              <p>Analyze an employee to see the chart</p>
+            </div>
+          </div>
+
+          <!-- Candidate History Table -->
+          <div class="mt-4">
+            <h6 class="fw-semibold mb-2">📋 Analysis History</h6>
+            <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+              <table class="table table-sm table-hover">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Stress</th>
+                    <th>Risk</th>
+                    <th>Score</th>
+                  </tr>
+                </thead>
+                <tbody id="stressHistoryTable">
+                  <tr><td colspan="4" class="text-muted text-center py-3">No analyses yet</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <!-- Team Management & Comparison Section -->
+    <div class="row g-3 mt-4" id="team-management-section" style="display:none;">
+      <!-- Personality Type Display -->
+      <div class="col-12">
+        <section class="panel p-3 p-lg-4">
+          <h5 class="mb-3 fw-bold">🎯 Personality Profile</h5>
+          <div class="row g-2">
+            <div class="col-12 col-md-6">
+              <div class="personality-card">
+                <div class="ptype-name" id="personalityTypeName">Profile</div>
+                <div class="ptype-description" id="personalityTypeDesc">Loading...</div>
+              </div>
+            </div>
+            <div class="col-12 col-md-6">
+              <div class="personality-strengths">
+                <strong class="d-block mb-2">💪 Strengths</strong>
+                <div id="personalityStrengths" class="small"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Team Builder -->
+      <div class="col-12 col-lg-8">
+        <section class="panel p-3 p-lg-4">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0 fw-bold">👥 Team Builder & Scenarios</h5>
+            <button id="addTeamScenarioBtn" class="btn btn-sm btn-outline-primary">+ New Team Scenario</button>
+          </div>
+          <div id="teamScenariosContainer" class="team-scenarios-grid"></div>
+          <div class="alert alert-info small mt-2" id="teamLimitAlert" style="display:none;">
+            Maximum 5 team scenarios can be compared at once.
+          </div>
+        </section>
+      </div>
+
+      <!-- Candidate History -->
+      <div class="col-12 col-lg-4">
+        <section class="panel p-3 p-lg-4">
+          <h5 class="mb-3 fw-bold">📋 Candidate History</h5>
+          <div id="candidateHistoryList" class="history-list" style="max-height: 500px; overflow-y: auto;">
+            <div class="text-muted small">No candidates analyzed yet</div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Team Comparison & Recommendations -->
+      <div class="col-12">
+        <section class="panel p-3 p-lg-4">
+          <h5 class="mb-3 fw-bold">📊 Team Comparison & Recommendations</h5>
+          <div id="teamComparisonContainer" class="team-comparison-grid">
+            <div class="text-muted text-center p-4">Create teams and add members to see comparative analysis</div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+      <div class="col-12 col-xl-5">
+        <section class="panel p-3 p-lg-4 h-100 d-flex flex-column">
+          <div class="d-flex flex-wrap gap-2 mb-2">
+            <button id="copyBtn" type="button" class="btn btn-outline-secondary btn-sm">Copy JSON</button>
+            <button id="downloadBtn" type="button" class="btn btn-outline-secondary btn-sm">Download JSON</button>
+            <button id="clearHistoryBtn" type="button" class="btn btn-outline-secondary btn-sm">Clear History</button>
+          </div>
+          <pre id="output" class="flex-grow-1">__OUTPUT__</pre>
+          <div id="note" class="small text-muted mt-2"></div>
+
+          <div class="history mt-3 pt-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <strong>Recent Analyses</strong>
+              <span class="small text-muted">Stored in browser</span>
+            </div>
+            <div id="historyList" class="history-list"><div class="empty">No previous analyses</div></div>
+          </div>
+        </section>
+      </div>
+    </div>
   </main>
 
   <div id="toast" class="toast-ui"></div>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
   <script src="/ui/app.js"></script>
 </body>
 </html>

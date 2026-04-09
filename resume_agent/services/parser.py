@@ -87,3 +87,52 @@ def _clean_text(text: str) -> str:
     normalized = re.sub(r"[ \t]+", " ", normalized)
     normalized = re.sub(r"\n{3,}", "\n\n", normalized)
     return normalized.strip()
+
+
+def extract_candidate_name(text: str) -> str:
+    """
+    Extract candidate name from resume text.
+    Typically the first 1-3 words on the first line or first capitalized line.
+    
+    Args:
+        text: Cleaned resume text
+    
+    Returns:
+        Extracted candidate name or empty string
+    """
+    if not text:
+        return ""
+    
+    lines = text.split("\n")
+    
+    # Try first few lines that contain capitalized text
+    for line in lines[:5]:
+        line = line.strip()
+        if not line or len(line) < 3:
+            continue
+        
+        # Look for patterns: "FirstName LastName", "FirstName M. LastName", etc.
+        # Must start with capital letter
+        if line[0].isupper():
+            # Remove common resume headers/titles
+            if any(keyword in line.lower() for keyword in 
+                   ["resume", "cv", "curriculum", "vitae", "profile", "summary", "phone", "email"]):
+                continue
+            
+            # Split by space and take first 2-3 words as name
+            words = line.split()
+            if len(words) >= 1:
+                # Filter out email addresses, phone numbers, etc
+                name_parts = []
+                for word in words[:3]:
+                    if "@" in word or word.replace("-", "").isdigit():
+                        continue
+                    name_parts.append(word.rstrip(".,;:"))
+                
+                if name_parts:
+                    name = " ".join(name_parts).strip()
+                    # Ensure it's actually a name (not too long, not all symbols)
+                    if 2 <= len(name) <= 50 and name.replace(" ", "").replace("-", "").isalpha():
+                        return name
+    
+    return ""

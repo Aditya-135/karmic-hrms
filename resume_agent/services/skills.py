@@ -7,10 +7,30 @@ from typing import Any
 from resume_agent.models.schema import SkillsResult
 
 
-try:
-    import spacy
-except ImportError:  # pragma: no cover - optional runtime fallback
-    spacy = None
+# Don't import spacy at module level - lazy load on first use
+spacy = None
+_spacy_nlp_cache: Any | None = None
+
+
+def _load_spacy_model() -> Any | None:
+    """Lazy load spacy model on first use."""
+    global _spacy_nlp_cache
+    
+    if _spacy_nlp_cache is not None:
+        return _spacy_nlp_cache
+    
+    try:
+        import spacy as spacy_module
+        _spacy_nlp_cache = spacy_module.load("en_core_web_sm")
+    except ImportError:
+        # Spacy not installed
+        return None
+    except OSError:
+        # Model not available, use blank
+        import spacy as spacy_module
+        _spacy_nlp_cache = spacy_module.blank("en")
+    
+    return _spacy_nlp_cache
 
 
 TECHNICAL_SKILLS: set[str] = {
@@ -75,13 +95,8 @@ class SkillExtractionService:
 
     @classmethod
     def create(cls) -> "SkillExtractionService":
-        if spacy is None:
-            return cls(nlp=None)
-
-        try:
-            nlp = spacy.load("en_core_web_sm")
-        except OSError:
-            nlp = spacy.blank("en")
+        """Create service with lazy-loaded spacy model."""
+        nlp = _load_spacy_model()
         return cls(nlp=nlp)
 
     def analyze(self, text: str) -> SkillsResult:

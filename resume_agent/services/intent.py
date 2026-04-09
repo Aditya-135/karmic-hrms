@@ -7,6 +7,7 @@ from typing import Any
 from resume_agent.models.schema import IntentProfile
 
 
+# Define intent categories and keywords BEFORE lazy loader
 INTENT_CATEGORIES: list[str] = [
     "Research-focused",
     "Corporate Growth",
@@ -29,10 +30,32 @@ INTENT_KEYWORDS: dict[str, tuple[str, ...]] = {
 }
 
 
-try:
-    from sentence_transformers import SentenceTransformer
-except ImportError:  # pragma: no cover - optional runtime fallback
-    SentenceTransformer = None
+# Don't import transformer models at module level - lazy load on first use
+_transformer_model_cache: Any | None = None
+_transformer_anchor_matrix_cache: Any | None = None
+
+
+def _load_transformer_model() -> tuple[Any | None, Any | None]:
+    """Lazy load SentenceTransformer model on first use."""
+    global _transformer_model_cache, _transformer_anchor_matrix_cache
+    
+    if _transformer_model_cache is not None:
+        return _transformer_model_cache, _transformer_anchor_matrix_cache
+    
+    try:
+        from sentence_transformers import SentenceTransformer
+        model = SentenceTransformer("all-MiniLM-L6-v2")
+        anchors = [INTENT_ANCHORS[label] for label in INTENT_CATEGORIES]
+        anchor_matrix = model.encode(anchors, normalize_embeddings=True)
+        _transformer_model_cache = model
+        _transformer_anchor_matrix_cache = anchor_matrix
+        return model, anchor_matrix
+    except ImportError:
+        # sentence_transformers not installed
+        return None, None
+    except Exception:
+        # Model download failed or other error
+        return None, None
 
 
 @dataclass(slots=True)
@@ -42,16 +65,9 @@ class IntentDetectionService:
 
     @classmethod
     def create(cls) -> "IntentDetectionService":
-        if SentenceTransformer is None:
-            return cls(model=None, anchor_matrix=None)
-
-        try:
-            model = SentenceTransformer("all-MiniLM-L6-v2")
-            anchors = [INTENT_ANCHORS[label] for label in INTENT_CATEGORIES]
-            anchor_matrix = model.encode(anchors, normalize_embeddings=True)
-            return cls(model=model, anchor_matrix=anchor_matrix)
-        except Exception:
-            return cls(model=None, anchor_matrix=None)
+        """Create service with lazy-loaded transformer model."""
+        model, anchor_matrix = _load_transformer_model()
+        return cls(model=model, anchor_matrix=anchor_matrix)
 
     def analyze(self, text: str) -> IntentProfile:
         similarities = self._semantic_similarities(text)

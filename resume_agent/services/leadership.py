@@ -7,10 +7,32 @@ from typing import Any
 from resume_agent.models.schema import LeadershipAnalysis
 
 
-try:
-    import spacy
-except ImportError:  # pragma: no cover - optional runtime fallback
-    spacy = None
+# Don't import spacy at module level - lazy load on first use
+_spacy_nlp_leadership_cache: Any | None = None
+
+
+def _load_spacy_model_for_leadership() -> Any | None:
+    """Lazy load spacy model for NLP processing."""
+    global _spacy_nlp_leadership_cache
+    
+    if _spacy_nlp_leadership_cache is not None:
+        return _spacy_nlp_leadership_cache
+    
+    try:
+        import spacy
+        nlp = spacy.load("en_core_web_sm")
+    except ImportError:
+        # Spacy not installed
+        return None
+    except OSError:
+        # Model not available, use blank
+        import spacy
+        nlp = spacy.blank("en")
+        if "sentencizer" not in nlp.pipe_names:
+            nlp.add_pipe("sentencizer")
+    
+    _spacy_nlp_leadership_cache = nlp
+    return nlp
 
 
 LEADERSHIP_VERBS: set[str] = {"led", "managed", "mentored", "owned", "coordinated"}
@@ -22,15 +44,8 @@ class LeadershipSignalService:
 
     @classmethod
     def create(cls) -> "LeadershipSignalService":
-        if spacy is None:
-            return cls(nlp=None)
-
-        try:
-            nlp = spacy.load("en_core_web_sm")
-        except OSError:
-            nlp = spacy.blank("en")
-            if "sentencizer" not in nlp.pipe_names:
-                nlp.add_pipe("sentencizer")
+        """Create service with lazy-loaded spacy model."""
+        nlp = _load_spacy_model_for_leadership()
         return cls(nlp=nlp)
 
     def analyze(self, text: str) -> LeadershipAnalysis:

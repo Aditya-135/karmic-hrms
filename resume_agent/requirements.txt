@@ -1,9 +1,21 @@
+# Web Framework & Server
 fastapi==0.115.12
 uvicorn[standard]==0.34.0
+
+# Data Validation
 pydantic==2.11.1
+
+# Natural Language Processing
 spacy==3.8.10
 sentence-transformers==3.4.1
+
+# Document Processing
 pdfplumber==0.11.5
 python-docx==1.1.2
+
+# Data Processing & ML
 numpy==2.2.3
+pandas==2.2.2
+
+# HTTP & Multipart
 python-multipart==0.0.20

@@ -8,6 +8,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi.staticfiles import StaticFiles
 
 # Support both:
 # 1) `uvicorn resume_agent.main:app` from project root
@@ -15,21 +16,23 @@ from fastapi.responses import HTMLResponse, JSONResponse, Response
 if __package__ in (None, ""):
     sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from resume_agent.routers import resume_router
+from resume_agent.routers import resume_router, behavioral_router
 from resume_agent.routers.resume import analyze_resume
+from resume_agent.routers.stress import stress_router
 from resume_agent.utils.logger import configure_logging, logger
 
 
 configure_logging()
 
 app = FastAPI(
-    title="Resume Intelligence Agent",
+    title="HRMS Intelligence Agent",
     version="1.0.0",
-    description="Production-ready Resume Intelligence Agent for HRMS.",
+    description="Production-ready HRMS Intelligence Agent with Resume & Behavioral Analysis",
 )
 
 BASE_DIR = Path(__file__).resolve().parent
 UI_DIR = BASE_DIR / "ui"
+app.mount("/ui", StaticFiles(directory=UI_DIR), name="ui")
 
 
 def _load_text(path: Path) -> str:
@@ -61,20 +64,14 @@ async def health_check() -> JSONResponse:
     return JSONResponse(content={"status": "ok"})
 
 
-@app.get("/ui/app.css")
-async def ui_css() -> Response:
-    return Response(content=_load_text(UI_DIR / "app.css"), media_type="text/css")
 
-
-@app.get("/ui/app.js")
-async def ui_js() -> Response:
-    return Response(content=_load_text(UI_DIR / "app.js"), media_type="application/javascript")
-
-
+# Serve index.html at root
 @app.get("/", response_class=HTMLResponse)
 async def root() -> HTMLResponse:
-    output = json.dumps({"message": "Upload a resume to see analysis output"}, indent=2)
-    return HTMLResponse(content=_render_page(output=output, status="Ready.", is_error=False))
+    index_path = UI_DIR / "index.html"
+    if not index_path.exists():
+        return HTMLResponse("<h1>UI template missing</h1>", status_code=404)
+    return HTMLResponse(content=index_path.read_text(encoding="utf-8"))
 
 
 @app.post("/web/analyze", response_class=HTMLResponse)
@@ -98,3 +95,5 @@ async def web_analyze(file: UploadFile = File(...)) -> HTMLResponse:
 
 
 app.include_router(resume_router)
+app.include_router(behavioral_router)
+app.include_router(stress_router)
