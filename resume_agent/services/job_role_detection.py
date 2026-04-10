@@ -245,7 +245,8 @@ def _build_centroids(
 @lru_cache(maxsize=8)
 def _load_role_dataset(dataset_path: Path) -> tuple[list[str], list[str]]:
     if not dataset_path.exists():
-        raise FileNotFoundError(f"Job role dataset not found: {dataset_path}")
+        logger.warning("Job role dataset not found at %s. Using default dataset.", dataset_path)
+        return _generate_default_dataset()
 
     roles: list[str] = []
     samples: list[str] = []
@@ -263,6 +264,39 @@ def _load_role_dataset(dataset_path: Path) -> tuple[list[str], list[str]]:
     if not roles:
         raise ValueError("Job role dataset is empty or invalid.")
     logger.info("Loaded %d rows / %d unique roles from %s", len(roles), len(set(roles)), dataset_path)
+    return roles, samples
+
+
+def _generate_default_dataset() -> tuple[list[str], list[str]]:
+    """
+    Generate a default job role dataset when no file is available.
+    Returns a balanced set of common roles with representative skills.
+    """
+    default_dataset = {
+        "Software Engineer": "Python Java JavaScript C++ SQL Docker Kubernetes Git REST APIs",
+        "Senior Software Engineer": "System Design Architecture Leadership Python Java JavaScript Microservices Cloud AWS",
+        "Data Scientist": "Python R Machine Learning TensorFlow PyTorch SQL Statistics Data Analysis Pandas NumPy",
+        "DevOps Engineer": "Docker Kubernetes Jenkins CI/CD AWS Azure Cloud Infrastructure Linux Python Bash",
+        "Product Manager": "Product Strategy Requirements Analysis User Research Data Analysis Communication Leadership",
+        "Project Manager": "Planning Scheduling Risk Management Stakeholder Communication Time Management Budget",
+        "QA Engineer": "Testing Automation Selenium Python JavaScript Test Strategy Bug Tracking",
+        "UI/UX Designer": "Figma Adobe XD Wireframing Prototyping User Research CSS HTML Design Systems",
+        "Business Analyst": "Requirements Analysis SQL Data Analysis stakeholder Communication Documentation",
+        "Full Stack Developer": "Python JavaScript React Node.js SQL MongoDB Docker Git REST APIs",
+        "Backend Developer": "Python Java C# SQL Microservices REST APIs Docker Cloud Databases",
+        "Frontend Developer": "JavaScript React Vue Angular HTML CSS TypeScript REST APIs",
+        "Mobile Developer": "Swift Kotlin Java React Native Flutter Xcode Android Studio",
+        "Machine Learning Engineer": "Python TensorFlow PyTorch Statistics SQL Machine Learning Deep Learning Data Preprocessing",
+        "Data Engineer": "Python SQL Spark Hadoop Data Warehousing ETL Cloud Databases",
+    }
+    
+    roles = []
+    samples = []
+    for role, skills in default_dataset.items():
+        roles.append(role)
+        samples.append(skills)
+    
+    logger.info("Generated default dataset with %d roles", len(roles))
     return roles, samples
 
 

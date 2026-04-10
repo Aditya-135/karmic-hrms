@@ -18,7 +18,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, Response
 if __package__ in (None, ""):
     sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from resume_agent.routers import resume_router, workforce_router
+from resume_agent.routers import resume_router, workforce_router, behavioral_router, stress_router
 from resume_agent.routers.resume import analyze_resume, _get_aggregator
 from resume_agent.routers.workforce import warm_up
 from resume_agent.utils.logger import configure_logging, logger
@@ -145,6 +145,8 @@ async def web_analyze(file: UploadFile = File(...)) -> HTMLResponse:
 
 app.include_router(resume_router)
 app.include_router(workforce_router)
+app.include_router(behavioral_router)
+app.include_router(stress_router)
 
 
 # ---------------------------------------------------------------------------

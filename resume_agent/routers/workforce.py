@@ -105,10 +105,6 @@ async def workforce_intelligence(
             },
         )
 
-    except FileNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
-        ) from exc
     except Exception as exc:
         logger.exception("Unexpected error during workforce intelligence")
         raise HTTPException(
@@ -124,8 +120,9 @@ async def workforce_intelligence(
 @lru_cache(maxsize=1)
 def _resolve_job_role_dataset() -> Path:
     """
-    Resolve the dataset path once and cache it.  Searches common locations
-    relative to the project root.
+    Resolve the dataset path once and cache it. Searches common locations
+    relative to the project root. If no file exists, returns a placeholder
+    path that will trigger the fallback dataset generation in job_role_detection.
     """
     here = Path(__file__).resolve()
     candidates = [
@@ -137,9 +134,11 @@ def _resolve_job_role_dataset() -> Path:
         if p.exists():
             logger.info("Job role dataset resolved: %s", p)
             return p
-    raise FileNotFoundError(
-        f"Job role dataset not found. Searched: {[str(c) for c in candidates]}"
-    )
+    
+    # Return a placeholder path that will trigger fallback dataset generation
+    fallback_path = candidates[1]  # Use the most likely location as placeholder
+    logger.info("Job role dataset not found on disk. Will use generated fallback dataset.")
+    return fallback_path
 
 
 def warm_up() -> None:
