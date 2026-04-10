@@ -100,7 +100,7 @@ class TeamMemberProfile(BaseModel):
     conscientiousness: int = Field(ge=0, le=100)
     extraversion: int = Field(ge=0, le=100)
     agreeableness: int = Field(ge=0, le=100)
-    emotional_stability: int = Field(ge=0, le=100)
+    neuroticism: int = Field(ge=0, le=100)
 
 
 class PersonalityTraitsResponse(BaseModel):
@@ -109,7 +109,7 @@ class PersonalityTraitsResponse(BaseModel):
     conscientiousness: int = Field(ge=0, le=100)
     extraversion: int = Field(ge=0, le=100)
     agreeableness: int = Field(ge=0, le=100)
-    emotional_stability: int = Field(ge=0, le=100)
+    neuroticism: int = Field(ge=0, le=100)
 
 
 class CommunicationAnalysisResponse(BaseModel):
@@ -133,7 +133,7 @@ class BehavioralAnalysisRequest(BaseModel):
     job_role: str = Field(..., description="Target job role (e.g., Engineer, Manager, Designer)")
     ocean_answers: dict[str, int] = Field(
         ...,
-        description="Dict mapping question IDs (O1-O3, C1-C3, E1-E3, A1-A3, S1-S3) to scores (1-5)",
+        description="Dict mapping question IDs (O1-O3, C1-C3, E1-E3, A1-A3, N1-N3) to scores (1-5)",
     )
     text_answers: list[str] = Field(
         default_factory=list,

@@ -655,9 +655,9 @@
     "A1": { trait: "agreeableness", question: "I cooperate well with others and compromise when needed", options: ["Strongly Disagree", "Disagree", "Neutral", "Agree", "Strongly Agree"] },
     "A2": { trait: "agreeableness", question: "I am empathetic and understand others' perspectives", options: ["Strongly Disagree", "Disagree", "Neutral", "Agree", "Strongly Agree"] },
     "A3": { trait: "agreeableness", question: "I credit teammates for their contributions", options: ["Strongly Disagree", "Disagree", "Neutral", "Agree", "Strongly Agree"] },
-    "S1": { trait: "emotional_stability", question: "I remain calm under pressure", options: ["Strongly Disagree", "Disagree", "Neutral", "Agree", "Strongly Agree"] },
-    "S2": { trait: "emotional_stability", question: "I handle constructive criticism well", options: ["Strongly Disagree", "Disagree", "Neutral", "Agree", "Strongly Agree"] },
-    "S3": { trait: "emotional_stability", question: "I am resilient when facing setbacks", options: ["Strongly Disagree", "Disagree", "Neutral", "Agree", "Strongly Agree"] }
+    "N1": { trait: "neuroticism", question: "When something goes wrong at work, I tend to worry extensively", options: ["Strongly Disagree", "Disagree", "Neutral", "Agree", "Strongly Agree"] },
+    "N2": { trait: "neuroticism", question: "I take criticism personally and feel hurt by negative feedback", options: ["Strongly Disagree", "Disagree", "Neutral", "Agree", "Strongly Agree"] },
+    "N3": { trait: "neuroticism", question: "I often feel anxious, worried, or overwhelmed in my daily work", options: ["Strongly Disagree", "Disagree", "Neutral", "Agree", "Strongly Agree"] }
   };
 
   // Generate OCEAN Questions
@@ -704,7 +704,7 @@
           <div class="col-6"><label>Conscientiousness: <input type="number" value="${member.conscientiousness || 50}" min="0" max="100" class="form-control form-control-sm trait-input" data-member="${idx}" data-trait="conscientiousness"></label></div>
           <div class="col-6"><label>Extraversion: <input type="number" value="${member.extraversion || 50}" min="0" max="100" class="form-control form-control-sm trait-input" data-member="${idx}" data-trait="extraversion"></label></div>
           <div class="col-6"><label>Agreeableness: <input type="number" value="${member.agreeableness || 50}" min="0" max="100" class="form-control form-control-sm trait-input" data-member="${idx}" data-trait="agreeableness"></label></div>
-          <div class="col-12"><label>Emotional Stability: <input type="number" value="${member.emotional_stability || 50}" min="0" max="100" class="form-control form-control-sm trait-input" data-member="${idx}" data-trait="emotional_stability"></label></div>
+          <div class="col-12"><label>Neuroticism: <input type="number" value="${member.neuroticism || 50}" min="0" max="100" class="form-control form-control-sm trait-input" data-member="${idx}" data-trait="neuroticism"></label></div>
         </div>
       </div>`;
     });
@@ -725,7 +725,7 @@
       conscientiousness: 50,
       extraversion: 50,
       agreeableness: 50,
-      emotional_stability: 50
+      neuroticism: 50
     });
     generateTeamMemberManager();
   };
@@ -1431,7 +1431,7 @@
       conscientiousness: m.conscientiousness || 50,
       extraversion: m.extraversion || 50,
       agreeableness: m.agreeableness || 50,
-      emotional_stability: m.emotional_stability || 50
+      neuroticism: m.neuroticism || 50
     }));
 
     return { candidateName, jobRole, ocean_answers: oceanAnswers, team_members: teamMembersForApi, text_answers: [textAnswer] };
@@ -1495,7 +1495,7 @@
     document.getElementById("bConscientiousness").textContent = (ocean.conscientiousness || 0) + "%";
     document.getElementById("bExtraversion").textContent = (ocean.extraversion || 0) + "%";
     document.getElementById("bAgreeableness").textContent = (ocean.agreeableness || 0) + "%";
-    document.getElementById("bEmotionalStability").textContent = (ocean.emotional_stability || 0) + "%";
+    document.getElementById("bNeuroticism").textContent = (ocean.neuroticism || 0) + "%";
 
     // Render Role Fit Tab
     const roleFitScore = response.role_fit_score || 0;

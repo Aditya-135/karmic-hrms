@@ -100,7 +100,7 @@ async def analyze_behavioral(
                 "conscientiousness": m.conscientiousness,
                 "extraversion": m.extraversion,
                 "agreeableness": m.agreeableness,
-                "emotional_stability": m.emotional_stability,
+                "neuroticism": m.neuroticism,
             }
             for m in payload.team_members
         ]
@@ -258,7 +258,7 @@ async def get_personality_questions() -> dict:
     return {
         "questions": OCEAN_QUESTIONS,
         "count": len(OCEAN_QUESTIONS),
-        "traits": ["openness", "conscientiousness", "extraversion", "agreeableness", "emotional_stability"],
+        "traits": ["openness", "conscientiousness", "extraversion", "agreeableness", "neuroticism"],
         "status": "success"
     }
 

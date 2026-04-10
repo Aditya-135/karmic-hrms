@@ -117,7 +117,7 @@ class RecommendationEngine:
         c = ocean_scores.get("conscientiousness", 50)
         e = ocean_scores.get("extraversion", 50)
         a = ocean_scores.get("agreeableness", 50)
-        s = ocean_scores.get("emotional_stability", 50)
+        n = ocean_scores.get("neuroticism", 50)
         
         reasons = []
         
@@ -225,7 +225,7 @@ class RecommendationEngine:
         differences = [
             abs(ocean1.get(trait, 50) - ocean2.get(trait, 50))
             for trait in ["openness", "conscientiousness", "extraversion", 
-                         "agreeableness", "emotional_stability"]
+                         "agreeableness", "neuroticism"]
         ]
         
         avg_difference = sum(differences) / len(differences)

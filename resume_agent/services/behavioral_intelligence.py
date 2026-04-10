@@ -166,41 +166,41 @@ OCEAN_QUESTIONS = [
         ]
     },
     
-    # EMOTIONAL STABILITY (5 questions)
+    # NEUROTICISM (5 questions)
     {
-        "id": "S1",
-        "trait": "emotional_stability",
-        "question": "Under high pressure, I:",
+        "id": "N1",
+        "trait": "neuroticism",
+        "question": "When something goes wrong at work, I tend to:",
         "options": [
-            ("Remain calm and focused", 5),
-            ("Feel stressed but manage effectively", 3),
-            ("Become anxious and make mistakes", 1),
-            ("Stay composed and problem-solve", 5),
-            ("Tend to panic", 1),
+            ("Quickly move on without dwelling on it", 1),
+            ("Feel mildly concerned then focus on solutions", 2),
+            ("Feel concerned and think about it moderately", 3),
+            ("Feel anxious but try to move forward", 4),
+            ("Worry extensively and ruminate about it for days", 5),
         ]
     },
     {
-        "id": "S2",
-        "trait": "emotional_stability",
-        "question": "Regarding constructive criticism, I:",
+        "id": "N2",
+        "trait": "neuroticism",
+        "question": "In response to criticism or negative feedback, I:",
         "options": [
-            ("Welcome it and learn from feedback", 5),
-            ("Accept it but feel slightly defensive", 3),
-            ("Take it personally and feel hurt", 1),
-            ("Appreciate diverse perspectives gladly", 5),
-            ("Become upset and defensive", 1),
+            ("Welcome it as constructive input without taking it personally", 1),
+            ("Take it professionally and adjust accordingly", 2),
+            ("Accept it with mixed feelings", 3),
+            ("Feel somewhat defensive and affected", 4),
+            ("Feel hurt for a long time and question my abilities", 5),
         ]
     },
     {
-        "id": "S3",
-        "trait": "emotional_stability",
-        "question": "After project setbacks, I:",
+        "id": "N3",
+        "trait": "neuroticism",
+        "question": "In my daily work, I:",
         "options": [
-            ("Quickly adapt and move forward", 5),
-            ("Reflect then continue", 3),
-            ("Dwell on what went wrong", 1),
-            ("Learn and become more resilient", 5),
-            ("Feel discouraged for long periods", 1),
+            ("Feel calm and in control", 1),
+            ("Remain mostly calm with occasional stress", 2),
+            ("Sometimes feel pressured but handle it", 3),
+            ("Frequently experience stress or tension", 4),
+            ("Often feel anxious, worried, or overwhelmed", 5),
         ]
     },
 ]
@@ -213,7 +213,7 @@ TEAM_COMPATIBILITY = {
         "role_fit": ["Innovation Lead", "Strategy", "Research", "Product Manager"]
     },
     "high_conscientiousness": {
-        "complements": ["openness", "emotional_stability"],
+        "complements": ["openness", "low_neuroticism"],
         "conflicts_with": ["low_conscientiousness"],
         "role_fit": ["Project Manager", "Quality Assurance", "Operations", "Finance"]
     },
@@ -223,24 +223,24 @@ TEAM_COMPATIBILITY = {
         "role_fit": ["Sales", "Client Relations", "Marketing", "Leadership"]
     },
     "high_agreeableness": {
-        "complements": ["extraversion", "emotional_stability"],
+        "complements": ["extraversion", "low_neuroticism"],
         "conflicts_with": ["low_agreeableness"],
         "role_fit": ["HR", "Training", "Support", "Team Lead"]
     },
-    "high_emotional_stability": {
+    "low_neuroticism": {
         "complements": ["conscientiousness", "agreeableness"],
-        "conflicts_with": ["low_emotional_stability"],
+        "conflicts_with": ["high_neuroticism"],
         "role_fit": ["Crisis Management", "Executive", "High-Pressure Roles"]
     },
 }
 
 ROLE_PERSONALITY_REQUIREMENTS = {
-    "Engineer": {"conscientiousness": 70, "openness": 60, "emotional_stability": 60},
-    "Manager": {"extraversion": 70, "agreeableness": 70, "emotional_stability": 75},
+    "Engineer": {"conscientiousness": 70, "openness": 60, "neuroticism": 40},
+    "Manager": {"extraversion": 70, "agreeableness": 70, "neuroticism": 25},
     "Designer": {"openness": 80, "conscientiousness": 65, "extraversion": 50},
-    "Sales": {"extraversion": 80, "agreeableness": 70, "emotional_stability": 70},
-    "HR": {"agreeableness": 80, "extraversion": 70, "emotional_stability": 75},
-    "Data Analyst": {"conscientiousness": 75, "openness": 70, "emotional_stability": 65},
+    "Sales": {"extraversion": 80, "agreeableness": 70, "neuroticism": 30},
+    "HR": {"agreeableness": 80, "extraversion": 70, "neuroticism": 25},
+    "Data Analyst": {"conscientiousness": 75, "openness": 70, "neuroticism": 35},
     "Product Manager": {"openness": 80, "extraversion": 70, "conscientiousness": 75},
 }
 
@@ -250,7 +250,7 @@ TEAM_COMPOSITION_BALANCE = {
         "conscientiousness": (50, 80),
         "extraversion": (40, 75),
         "agreeableness": (60, 85),
-        "emotional_stability": (60, 85),
+        "neuroticism": (15, 60),
     }
 }
 
@@ -269,7 +269,7 @@ NEGATIVE_WORDS = [
 
 # Risk Thresholds
 RISK_THRESHOLDS = {
-    "emotional_stability": 40,
+    "neuroticism": 70,
     "communication": 40,
     "teamwork": 30,
     "accountability": 35,
@@ -309,56 +309,56 @@ class BehavioralAnalysisResult:
 PERSONALITY_TYPES = {
     "The Visionary": {
         "description": "Highly creative, adaptable, and open to new experiences. Thrives in innovative environments.",
-        "traits": {"openness": 75, "conscientiousness": 55, "extraversion": 60, "agreeableness": 60, "emotional_stability": 65},
+        "traits": {"openness": 75, "conscientiousness": 55, "extraversion": 60, "agreeableness": 60, "neuroticism": 35},
         "strengths": ["Innovation", "Creative Problem Solving", "Adaptability", "Big Picture Thinking"],
         "challenges": ["May lack attention to detail", "Can be scattered", "Prefers change over stability"],
         "best_roles": ["Product Manager", "Designer", "Consultant", "Startup Founder"]
     },
     "The Organizer": {
         "description": "Highly reliable, detail-oriented, and systematic. Excels at project management and execution.",
-        "traits": {"openness": 50, "conscientiousness": 80, "extraversion": 65, "agreeableness": 70, "emotional_stability": 75},
+        "traits": {"openness": 50, "conscientiousness": 80, "extraversion": 65, "agreeableness": 70, "neuroticism": 25},
         "strengths": ["Reliability", "Organization", "Attention to Detail", "Goal Achievement"],
         "challenges": ["May resist change", "Can be rigid", "Over-emphasis on processes"],
         "best_roles": ["Project Manager", "Operations", "Engineer", "Analyst"]
     },
     "The Leader": {
         "description": "Charismatic, confident, and socially commanding. Natural at influencing and team motivation.",
-        "traits": {"openness": 65, "conscientiousness": 70, "extraversion": 80, "agreeableness": 65, "emotional_stability": 70},
+        "traits": {"openness": 65, "conscientiousness": 70, "extraversion": 80, "agreeableness": 65, "neuroticism": 30},
         "strengths": ["Communication", "Team Motivation", "Confidence", "Decision Making"],
         "challenges": ["Can be domineering", "May not listen well", "Risk of dismissing others"],
         "best_roles": ["Manager", "Sales", "Executive", "Team Lead"]
     },
     "The Collaborator": {
         "description": "Empathetic, cooperative, and focused on team harmony. Essential for building strong teams.",
-        "traits": {"openness": 60, "conscientiousness": 70, "extraversion": 70, "agreeableness": 80, "emotional_stability": 75},
+        "traits": {"openness": 60, "conscientiousness": 70, "extraversion": 70, "agreeableness": 80, "neuroticism": 25},
         "strengths": ["Teamwork", "Empathy", "Collaboration", "Conflict Resolution"],
         "challenges": ["May avoid conflict", "Over-accommodating", "Difficulty with tough decisions"],
         "best_roles": ["HR", "Team Lead", "Counselor", "Customer Success"]
     },
     "The Steady Performer": {
         "description": "Calm, stable, and reliable. Maintains composure under pressure with consistent performance.",
-        "traits": {"openness": 55, "conscientiousness": 75, "extraversion": 55, "agreeableness": 70, "emotional_stability": 80},
+        "traits": {"openness": 55, "conscientiousness": 75, "extraversion": 55, "agreeableness": 70, "neuroticism": 20},
         "strengths": ["Stability", "Pressure Handling", "Consistency", "Reliability"],
         "challenges": ["May lack creativity", "Slow to adapt", "Conservative approach"],
         "best_roles": ["Operations", "Support", "Analyst", "Engineer"]
     },
     "The Maverick": {
         "description": "Independent, unconventional, and confident in their own path. Challenges the status quo.",
-        "traits": {"openness": 75, "conscientiousness": 60, "extraversion": 65, "agreeableness": 50, "emotional_stability": 60},
+        "traits": {"openness": 75, "conscientiousness": 60, "extraversion": 65, "agreeableness": 50, "neuroticism": 40},
         "strengths": ["Innovation", "Independence", "Courage", "Original Thinking"],
         "challenges": ["May clash with team", "Resistance to authority", "Inconsistency"],
         "best_roles": ["Entrepreneur", "Researcher", "Designer", "Consultant"]
     },
     "The Analyst": {
         "description": "Logical, data-driven, and methodical. Excels at solving complex technical problems.",
-        "traits": {"openness": 65, "conscientiousness": 75, "extraversion": 45, "agreeableness": 55, "emotional_stability": 70},
+        "traits": {"openness": 65, "conscientiousness": 75, "extraversion": 45, "agreeableness": 55, "neuroticism": 30},
         "strengths": ["Problem Solving", "Technical Skill", "Logical Thinking", "Precision"],
         "challenges": ["Can be overly critical", "Difficulty with soft skills", "Resistance to change"],
         "best_roles": ["Data Analyst", "Engineer", "Researcher", "Architect"]
     },
     "The Connector": {
         "description": "Socially energetic, friendly, and outgoing. Excellent at building networks and relationships.",
-        "traits": {"openness": 65, "conscientiousness": 60, "extraversion": 80, "agreeableness": 75, "emotional_stability": 70},
+        "traits": {"openness": 65, "conscientiousness": 60, "extraversion": 80, "agreeableness": 75, "neuroticism": 30},
         "strengths": ["Networking", "Communication", "Relationship Building", "Social Intelligence"],
         "challenges": ["May lack depth", "Can be unfocused", "Over-reliance on people skills"],
         "best_roles": ["Sales", "Business Development", "Community Manager", "Client Success"]
@@ -381,9 +381,10 @@ def get_personality_type(ocean_scores: Dict[str, float]) -> tuple:
     c = scores.get("conscientiousness", 50)
     e = scores.get("extraversion", 50)
     a = scores.get("agreeableness", 50)
-    s = scores.get("emotional_stability", 50)
+    n = scores.get("neuroticism", 50)
     
     # Personality type logic (industry-standard OCEAN mapping)
+    # Note: Low neuroticism (calm, stable) is preferred for most roles
     if o > 70 and c < 65 and e > 60:
         ptype = "The Visionary"
     elif c > 75 and o < 65 and a > 65:
@@ -392,7 +393,7 @@ def get_personality_type(ocean_scores: Dict[str, float]) -> tuple:
         ptype = "The Leader"
     elif a > 75 and c > 65 and e > 65:
         ptype = "The Collaborator"
-    elif s > 75 and c > 70 and o < 60:
+    elif n < 25 and c > 70 and o < 60:  # Low neuroticism (calm and stable)
         ptype = "The Steady Performer"
     elif o > 70 and a < 60 and e > 60:
         ptype = "The Maverick"
@@ -420,7 +421,7 @@ def generate_dynamic_strengths(ocean_scores: Dict[str, float]) -> list:
     c = ocean_scores.get("conscientiousness", 50)
     e = ocean_scores.get("extraversion", 50)
     a = ocean_scores.get("agreeableness", 50)
-    s = ocean_scores.get("emotional_stability", 50)
+    n = ocean_scores.get("neuroticism", 50)
     
     # Openness-based strengths
     if o > 75:
@@ -450,12 +451,12 @@ def generate_dynamic_strengths(ocean_scores: Dict[str, float]) -> list:
     elif a < 40:
         strengths.append("Strong independent judgment and assertiveness")
     
-    # Emotional Stability-based strengths
-    if s > 75:
+    # Neuroticism-based strengths (inverted: low neuroticism = high stability)
+    if n < 25:  # Low neuroticism (calm, composed)
         strengths.append("Exceptional composure under pressure")
-    elif s > 60:
+    elif n < 40:  # Moderate-low neuroticism
         strengths.append("Resilience and stress management")
-    elif s < 40:
+    elif n > 75:  # High neuroticism (sensitive, aware)
         strengths.append("Strong sensitivity to environmental needs")
     
     # Cross-trait strengths
@@ -463,7 +464,7 @@ def generate_dynamic_strengths(ocean_scores: Dict[str, float]) -> list:
         strengths.append("Natural innovator with communication ability")
     if c > 70 and a > 70:
         strengths.append("Dependable team player")
-    if e > 70 and s > 70:
+    if e > 70 and n < 40:  # Confident and composed leader (low neuroticism)
         strengths.append("Confident and composed leader")
     
     return strengths[:5]  # Return top 5 unique strengths
@@ -475,16 +476,19 @@ def calculate_role_compatibility(ocean_scores: Dict[str, float]) -> Dict[str, fl
     c = ocean_scores.get("conscientiousness", 50)
     e = ocean_scores.get("extraversion", 50)
     a = ocean_scores.get("agreeableness", 50)
-    s = ocean_scores.get("emotional_stability", 50)
+    n = ocean_scores.get("neuroticism", 50)
+    
+    # Convert neuroticism to stability equivalent (100 - neuroticism) for role compatibility
+    stability = 100 - n
     
     compatibilities = {
-        "Manager": (e * 0.35 + c * 0.25 + a * 0.25 + s * 0.15) / 100,
-        "Engineer": (c * 0.35 + o * 0.25 + s * 0.25 + a * 0.15) / 100,
+        "Manager": (e * 0.35 + c * 0.25 + a * 0.25 + stability * 0.15) / 100,
+        "Engineer": (c * 0.35 + o * 0.25 + stability * 0.25 + a * 0.15) / 100,
         "Designer": (o * 0.4 + e * 0.25 + a * 0.2 + c * 0.15) / 100,
-        "Sales": (e * 0.4 + a * 0.3 + s * 0.2 + o * 0.1) / 100,
-        "HR/People": (a * 0.35 + e * 0.3 + s * 0.2 + o * 0.15) / 100,
-        "Analyst": (c * 0.35 + o * 0.3 + s * 0.2 + a * 0.15) / 100,
-        "Executive": (e * 0.3 + c * 0.25 + s * 0.25 + o * 0.2) / 100,
+        "Sales": (e * 0.4 + a * 0.3 + stability * 0.2 + o * 0.1) / 100,
+        "HR/People": (a * 0.35 + e * 0.3 + stability * 0.2 + o * 0.15) / 100,
+        "Analyst": (c * 0.35 + o * 0.3 + stability * 0.2 + a * 0.15) / 100,
+        "Executive": (e * 0.3 + c * 0.25 + stability * 0.25 + o * 0.2) / 100,
     }
     
     # Return as percentages
@@ -544,7 +548,7 @@ class BehavioralAgent:
             "conscientiousness": [],
             "extraversion": [],
             "agreeableness": [],
-            "emotional_stability": [],
+            "neuroticism": [],
         }
 
         # Collect scores by trait
@@ -701,10 +705,14 @@ class BehavioralAgent:
                 candidate_val = self.ocean_scores.get(trait, 50)
                 member_val = member.get(trait, 50)
 
-                if trait in ["conscientiousness", "emotional_stability"]:
-                    if candidate_val >= 70 and member_val >= 70:
+                if trait in ["conscientiousness", "neuroticism"]:
+                    if trait == "conscientiousness" and candidate_val >= 70 and member_val >= 70:
                         synergies.append(
-                            f"✓ Both have high {trait} - strong reliability and stability"
+                            f"✓ Both have high conscientiousness - strong reliability and stability"
+                        )
+                    elif trait == "neuroticism" and candidate_val <= 30 and member_val <= 30:
+                        synergies.append(
+                            f"✓ Both have low neuroticism - calm and composed team members"
                         )
                 elif trait == "extraversion":
                     if abs(candidate_val - member_val) > 30:
@@ -722,9 +730,9 @@ class BehavioralAgent:
                     potential_conflicts.append(
                         f"⚠️ Both low agreeableness - potential friction in conflicts"
                     )
-                elif trait == "emotional_stability" and candidate_val < 40 and member_val < 40:
+                elif trait == "neuroticism" and candidate_val > 70 and member_val > 70:
                     potential_conflicts.append(
-                        f"⚠️ Both low emotional stability - team stress management needed"
+                        f"⚠️ Both high neuroticism - team stress management needed"
                     )
 
         overall_compatibility = int(sum(compatibility_scores) / len(compatibility_scores)) if compatibility_scores else 75
@@ -759,8 +767,8 @@ class BehavioralAgent:
         """Identify behavioral risk factors."""
         flags = []
 
-        if self.ocean_scores.get("emotional_stability", 100) < 40:
-            flags.append("⚠️ Low emotional stability - may struggle under pressure")
+        if self.ocean_scores.get("neuroticism", 0) > 70:
+            flags.append("⚠️ High neuroticism - may struggle under pressure and tend to worry")
 
         if self.communication_score < 40:
             flags.append("⚠️ Poor communication in assessment - needs clarity in articulation")
@@ -895,7 +903,7 @@ if __name__ == "__main__":
             "C1": 5, "C2": 5, "C3": 4,  # Conscientiousness: 4.6 avg -> 92
             "E1": 3, "E2": 3, "E3": 2,  # Extraversion: 2.6 avg -> 52
             "A1": 5, "A2": 4, "A3": 5,  # Agreeableness: 4.6 avg -> 92
-            "S1": 4, "S2": 4, "S3": 5,  # Emotional Stability: 4.3 avg -> 86
+            "N1": 2, "N2": 2, "N3": 1,  # Neuroticism: 1.6 avg -> 32 (low neuroticism = calm)
         },
         "text_answers": [
             "I handle conflicts by listening to all perspectives and finding collaborative solutions. "
@@ -913,7 +921,7 @@ if __name__ == "__main__":
             "conscientiousness": 75,
             "extraversion": 70,
             "agreeableness": 80,
-            "emotional_stability": 75,
+            "neuroticism": 25,
         },
         {
             "name": "Carol White",
@@ -921,7 +929,7 @@ if __name__ == "__main__":
             "conscientiousness": 85,
             "extraversion": 55,
             "agreeableness": 75,
-            "emotional_stability": 80,
+            "neuroticism": 20,
         },
     ]
 
@@ -947,7 +955,7 @@ if __name__ == "__main__":
     print("\n" + "-" * 90)
     print("OCEAN PERSONALITY PROFILE:")
     print("-" * 90)
-    traits_order = ["openness", "conscientiousness", "extraversion", "agreeableness", "emotional_stability"]
+    traits_order = ["openness", "conscientiousness", "extraversion", "agreeableness", "neuroticism"]
     for trait in traits_order:
         score = result.personality_traits.get(trait, 0)
         bar = "█" * (score // 5) + "░" * ((100 - score) // 5)
