@@ -106,6 +106,13 @@ async def ui_js() -> Response:
         content=_load_text(UI_DIR / "app.js"), media_type="application/javascript"
     )
 
+@app.get("/ui/logo.png", include_in_schema=False)
+async def ui_logo() -> Response:
+    logo_path = UI_DIR / "logo.png"
+    if logo_path.exists():
+        return Response(content=logo_path.read_bytes(), media_type="image/png")
+    return Response(status_code=404)
+
 
 # ---------------------------------------------------------------------------
 # Web UI
