@@ -10,7 +10,11 @@ from resume_agent.models.schema import ErrorResponse, ResumeAnalysisResponse
 # from resume_agent.services.compensation import CompensationEmphasisService
 # from resume_agent.services.intent import IntentDetectionService
 # from resume_agent.services.leadership import LeadershipSignalService
-from resume_agent.services.parser import extract_text_from_upload, extract_candidate_name
+from resume_agent.services.parser import (
+    extract_candidate_name,
+    extract_candidate_profile,
+    extract_text_from_upload,
+)
 # from resume_agent.services.skills import SkillExtractionService
 from resume_agent.utils.logger import logger
 
@@ -154,16 +158,19 @@ async def analyze_resume(file: UploadFile = File(...)) -> ResumeAnalysisResponse
         text = await extract_text_from_upload(file)
         logger.info("Resume parsed successfully: filename=%s", file.filename)
 
+        candidate_profile = extract_candidate_profile(text)
+
         # Try full aggregator first (with all services)
         aggregator = _get_aggregator()
         if aggregator is not None:
-            return aggregator.analyze(text)
+            result = aggregator.analyze(text)
+            return result.model_copy(update={"candidate_profile": candidate_profile})
         else:
             # Fallback to mock analysis if aggregator failed
             logger.info("Using mock analysis fallback")
             result = _get_mock_analysis(text)
             logger.info("Resume analysis completed (mock): filename=%s", file.filename)
-            return result
+            return result.model_copy(update={"candidate_profile": candidate_profile})
     except HTTPException:
         raise
     except Exception as exc:
@@ -205,4 +212,37 @@ async def extract_resume_name(file: UploadFile = File(...)) -> dict:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error extracting candidate name: {exc}",
+        ) from exc
+
+
+@router.post(
+    "/extract-profile",
+    response_model=dict,
+    responses={400: {"model": ErrorResponse}, 500: {"model": ErrorResponse}},
+)
+async def extract_resume_profile(file: UploadFile = File(...)) -> dict:
+    """Extract candidate contact, education, and profile details from a resume."""
+    try:
+        text = await extract_text_from_upload(file)
+        profile = extract_candidate_profile(text)
+
+        logger.info(
+            "Candidate profile extracted: name=%s, email=%s, filename=%s",
+            profile.get("candidate_name") or "(not found)",
+            profile.get("email") or "(not found)",
+            file.filename,
+        )
+
+        return {
+            "status": "success",
+            "profile": profile,
+            "message": "Candidate profile extracted from resume.",
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Error extracting candidate profile")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error extracting candidate profile: {exc}",
         ) from exc
