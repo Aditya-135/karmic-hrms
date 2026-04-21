@@ -10,7 +10,7 @@ from typing import AsyncGenerator
 
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, Response, RedirectResponse
 
 # Support both:
 # 1) `uvicorn resume_agent.main:app` from project root
@@ -18,10 +18,11 @@ from fastapi.responses import HTMLResponse, JSONResponse, Response
 if __package__ in (None, ""):
     sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from resume_agent.routers import resume_router, workforce_router, behavioral_router, stress_router
+from resume_agent.routers import resume_router, workforce_router, behavioral_router, stress_router, auth
 from resume_agent.routers.resume import analyze_resume, _get_aggregator
 from resume_agent.routers.workforce import warm_up
 from resume_agent.utils.logger import configure_logging, logger
+from resume_agent.utils.auth import decode_access_token
 
 
 configure_logging()
@@ -119,9 +120,19 @@ async def ui_logo() -> Response:
 # ---------------------------------------------------------------------------
 
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
-async def root() -> HTMLResponse:
+async def root(request: Request) -> Response:
+    token = request.cookies.get("auth_token")
+    if not token or not decode_access_token(token):
+        return RedirectResponse(url="/login")
     output = json.dumps({"message": "Upload a resume to see analysis output"}, indent=2)
     return HTMLResponse(content=_render_page(output=output, status="Ready."))
+
+@app.get("/login", response_class=HTMLResponse, include_in_schema=False)
+async def login_page() -> HTMLResponse:
+    template = _load_text(UI_DIR / "login.html")
+    if not template:
+        return HTMLResponse(content="<h1>Login template missing</h1>", status_code=404)
+    return HTMLResponse(content=template)
 
 
 @app.post("/web/analyze", response_class=HTMLResponse, include_in_schema=False)
@@ -154,6 +165,7 @@ app.include_router(resume_router)
 app.include_router(workforce_router)
 app.include_router(behavioral_router)
 app.include_router(stress_router)
+app.include_router(auth.router)
 
 
 # ---------------------------------------------------------------------------
