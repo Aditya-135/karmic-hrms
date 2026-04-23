@@ -448,20 +448,34 @@
   }
 
   const PDF_COLORS = {
-    accent: [5, 150, 105],      // Emerald-600
-    accentDark: [4, 120, 87],   // Emerald-700
-    ink: [15, 23, 42],          // Slate-900 
-    muted: [100, 116, 139],     // Slate-500
-    line: [226, 232, 240],      // Slate-200
-    soft: [241, 245, 249],      // Slate-100
-    surface: [255, 255, 255],   // White
-    light: [248, 250, 252],     // Slate-50
-    danger: [220, 38, 38],      // Red-600
-    warning: [217, 119, 6],     // Amber-600
-    ok: [16, 185, 129],         // Emerald-500
-    blue: [37, 99, 235],        // Blue-600
-    rose: [225, 29, 72],        // Rose-600
+    // Professional corporate palette
+    navy:        [17, 34, 68],
+    navyMid:     [28, 53, 96],
+    navyLight:   [59, 93, 149],
+    gold:        [106, 121, 153],
+    goldLight:   [232, 237, 246],
+    accent:      [38, 99, 184],
+    accentDark:  [27, 78, 143],
+    ok:          [26, 127, 90],
+    // ── Semantic ─────────────────────────────────────────────────────────────
+    danger:      [185,  28,  28],  // Risk / High
+    warning:     [180,  83,   9],  // Caution
+    blue:        [ 29,  78, 216],  // Skills / Info
+    rose:        [190,  18,  60],  // Alert
+    // ── Typography & Surfaces ────────────────────────────────────────────────
+    ink:         [10,  18,  38],   // Near-black body text
+    muted:       [90, 110, 135],   // Secondary text
+    line:        [201, 212, 230],
+    soft:        [240, 244, 250],
+    light:       [247, 249, 253],
+    surface:     [255, 255, 255],  // White
   };
+  const PDF_BRAND = {
+    platform: 'KARMIC HRMS ENTERPRISE TALENT INTELLIGENCE',
+    coverTagline: 'GLOBAL MNC CANDIDATE ASSESSMENT REPORT',
+    confidentiality: 'CONFIDENTIAL',
+  };
+  const REPORT_TITLE = 'Talent Intelligence Report';
 
   function addWrappedLine(lines, text, size = 10, spaceBefore = 0, options = {}) {
     const availableWidth = 507;
@@ -493,8 +507,7 @@
   }
 
   function addSection(lines, title) {
-    addWrappedLine(lines, title, 14, 16, { font: 'F2', color: PDF_COLORS.accentDark });
-    lines.push({ type: 'divider', height: 10, spaceBefore: 4 });
+    lines.push({ type: 'sectionBanner', title, height: 28, spaceBefore: 18 });
   }
 
   function addKeyValue(lines, label, value) {
@@ -510,10 +523,10 @@
       addWrappedLine(lines, '  None available', 9, 2, { color: PDF_COLORS.muted });
       return;
     }
-    let bullet = '•';
-    if (label.toLowerCase().includes('strength') || label.toLowerCase().includes('synerg')) bullet = '+';
-    if (label.toLowerCase().includes('risk') || label.toLowerCase().includes('conflict')) bullet = '!';
-    if (label.toLowerCase().includes('recommend')) bullet = '>';
+    let bullet = '-';
+    if (label.toLowerCase().includes('strength') || label.toLowerCase().includes('synerg')) bullet = '[+]';
+    if (label.toLowerCase().includes('risk') || label.toLowerCase().includes('conflict')) bullet = '[!]';
+    if (label.toLowerCase().includes('recommend')) bullet = '[>]';
 
     list.forEach((item) => addWrappedLine(lines, `  ${bullet}   ${cleanPdfText(item)}`, 10, 4));
   }
@@ -526,7 +539,7 @@
     lines.push({
       type: 'reportHeader',
       title,
-      subtitle: subtitle || `Generated: ${new Date().toLocaleString()}`,
+      subtitle: subtitle || `Confidential Candidate Assessment | Generated: ${new Date().toLocaleString()}`,
       height: 100, // Taller premium header
       spaceBefore: 0,
     });
@@ -536,7 +549,7 @@
     const validItems = items.filter(i => i && i.label && i.value);
     if (!validItems.length) return;
     if (title) {
-      addWrappedLine(lines, title, 12, 14, { font: 'F2', color: PDF_COLORS.ink });
+      addWrappedLine(lines, title, 11, 14, { font: 'F2', color: PDF_COLORS.navyMid });
     }
     lines.push({
       type: 'tableBox',
@@ -544,6 +557,135 @@
       height: validItems.length * 24 + 16,
       spaceBefore: 6,
     });
+  }
+
+  function addSkillTable(lines, title, skills) {
+    const list = Array.isArray(skills) ? skills.filter(Boolean) : [];
+    if (!list.length) return;
+    const joined = list.map((skill) => cleanPdfText(skill)).join(' | ');
+    addTable(lines, title, [
+      { label: 'Skill Tags', value: joined }
+    ]);
+  }
+
+  function scoreTo100(value, scale01 = false) {
+    if (value == null || value === '') return null;
+    const n = Number(value);
+    if (!Number.isFinite(n)) return null;
+    return Math.max(0, Math.min(100, Math.round(scale01 ? n * 100 : n)));
+  }
+
+  function scoreBadge(value) {
+    const n = scoreTo100(value, false) || 0;
+    if (n >= 70) return 'Strong';
+    if (n >= 50) return 'Medium';
+    return 'Low';
+  }
+
+  function hiringRecommendation(leadership, skills, behavioral) {
+    const l = scoreTo100(leadership, true) || 0;
+    const s = scoreTo100(skills, true) || 0;
+    const b = scoreTo100(behavioral, false) || 0;
+    const composite = Math.round((l + s + b) / 3);
+    if (composite >= 75) return 'Strong Hire';
+    if (composite >= 60) return 'Interview Recommended';
+    if (composite >= 45) return 'Consider Later';
+    return 'Not Recommended';
+  }
+
+  function collectCandidateSnapshots() {
+    const snapshots = [];
+    if (state.current) {
+      snapshots.push({
+        name: (state.profile && state.profile.candidate_name) || 'Current Candidate',
+        role: (state.workforce && state.workforce.job_role && state.workforce.job_role.role) || '-',
+        leadership: scoreTo100(state.current?.leadership_analysis?.score, true) || 0,
+        skills: scoreTo100(state.current?.skills?.confidence, true) || 0,
+        behavioral: scoreTo100((typeof currentAnalysis !== 'undefined' && currentAnalysis?.behavioral_fit_score) || 0, false) || 0,
+        file: state.fileName || 'current-file'
+      });
+    }
+    state.history.forEach((entry, idx) => {
+      if (!entry?.payload) return;
+      const p = entry.payload;
+      snapshots.push({
+        name: p?.candidate_profile?.candidate_name || `Candidate ${idx + 1}`,
+        role: p?.intent_profile?.primary_intent || '-',
+        leadership: scoreTo100(p?.leadership_analysis?.score, true) || 0,
+        skills: scoreTo100(p?.skills?.confidence, true) || 0,
+        behavioral: 0,
+        file: entry.file || `resume-${idx + 1}`
+      });
+    });
+    return snapshots.slice(0, 20);
+  }
+
+  function addExecutiveSummaryPage(lines, reportTitle) {
+    const candidates = collectCandidateSnapshots();
+    const total = candidates.length || 1;
+    const top = candidates.slice().sort((a, b) => (b.leadership + b.skills + b.behavioral) - (a.leadership + a.skills + a.behavioral))[0] || {};
+    const avgSkills = Math.round(candidates.reduce((sum, c) => sum + (c.skills || 0), 0) / total);
+    const avgLead = Math.round(candidates.reduce((sum, c) => sum + (c.leadership || 0), 0) / total);
+    const avgBehavior = Math.round(candidates.reduce((sum, c) => sum + (c.behavioral || 0), 0) / total);
+    const highestBehavior = Math.max(0, ...candidates.map((c) => c.behavioral || 0));
+    const shortlist = candidates.filter((c) => hiringRecommendation(c.leadership / 100, c.skills / 100, c.behavioral) !== 'Not Recommended').length;
+
+    addSection(lines, 'Executive Summary');
+    addTable(lines, 'Assessment Overview', [
+      { label: 'Report Title', value: reportTitle || REPORT_TITLE },
+      { label: 'Generated Date/Time', value: new Date().toLocaleString() },
+      { label: 'Total Candidates Analyzed', value: total },
+      { label: 'Top Ranked Candidate', value: top.name || '-' },
+      { label: 'Average Skill Confidence', value: `${avgSkills}%` },
+      { label: 'Highest Behavioral Fit', value: `${highestBehavior}/100` },
+      { label: 'Recommended Shortlist Count', value: shortlist }
+    ]);
+    addScoreCards(lines, [
+      { label: 'Total Reports', value: `${total}`, color: PDF_COLORS.accent },
+      { label: 'Avg Leadership Score', value: `${avgLead}/100`, color: scoreColor(avgLead) },
+      { label: 'Avg Skills Confidence', value: `${avgSkills}%`, color: scoreColor(avgSkills) },
+      { label: 'Avg Behavioral Fit', value: `${avgBehavior}/100`, color: scoreColor(avgBehavior) },
+    ]);
+  }
+
+  function addComparisonDashboard(lines) {
+    const candidates = collectCandidateSnapshots();
+    if (!candidates.length) return;
+    addSection(lines, 'Candidate Comparison Dashboard');
+    candidates.slice(0, 10).forEach((c, idx) => {
+      const recommendation = hiringRecommendation(c.leadership / 100, c.skills / 100, c.behavioral);
+      addTable(lines, `Candidate ${idx + 1}`, [
+        { label: 'Candidate Name', value: c.name },
+        { label: 'Role', value: c.role },
+        { label: 'Leadership', value: `${c.leadership}/100 (${scoreBadge(c.leadership)})` },
+        { label: 'Skills', value: `${c.skills}% (${scoreBadge(c.skills)})` },
+        { label: 'Behavioral Fit', value: `${c.behavioral}/100 (${scoreBadge(c.behavioral)})` },
+        { label: 'Recommendation', value: recommendation },
+      ]);
+    });
+    addBarChart(lines, 'Candidate Score Comparison', candidates.slice(0, 10).map((c) => ({
+      label: cleanPdfText(c.name).slice(0, 18),
+      value: Math.round((c.leadership + c.skills + c.behavioral) / 3),
+      display: `${Math.round((c.leadership + c.skills + c.behavioral) / 3)}/100`,
+      color: scoreColor(Math.round((c.leadership + c.skills + c.behavioral) / 3))
+    })));
+  }
+
+  function addBehavioralHistoryPage(lines) {
+    if (!candidateHistory.length) return;
+    addSection(lines, 'Behavioral History');
+    candidateHistory.slice(0, 15).forEach((entry, idx) => {
+      addTable(lines, `History Row ${idx + 1}`, [
+        { label: 'Candidate Name', value: entry.candidate_name || '-' },
+        { label: 'Role', value: entry.job_role || '-' },
+        { label: 'Behavioral Fit Score', value: `${entry.behavioral_fit_score || 0}/100` },
+        { label: 'Date', value: entry.timestamp || '-' },
+      ]);
+    });
+    addTrendChart(lines, 'Behavioral Fit Trend', candidateHistory.slice(0, 12).map((entry) => ({
+      workload_score: Number(entry.behavioral_fit_score) || 0,
+      risk_level: (Number(entry.behavioral_fit_score) || 0) >= 70 ? 'NORMAL' : (Number(entry.behavioral_fit_score) || 0) >= 50 ? 'HIGH' : 'CRITICAL'
+    })));
   }
 
   function addScoreCards(lines, cards) {
@@ -621,81 +763,158 @@
       return `${rgb(color)} RG ${width.toFixed(2)} w ${x1.toFixed(2)} ${y1.toFixed(2)} m ${x2.toFixed(2)} ${y2.toFixed(2)} l S`;
     }
 
-    let cachedPdfLogoLight = null;
-    let cachedPdfLogoDark = null;
+    let cachedPdfLogoMark = null;
+    let cachedPdfLogoHeader = null;
     let cachedPdfLogoW = 0;
     let cachedPdfLogoH = 0;
 
     function loadLogosForPdf() {
-      if (cachedPdfLogoLight) return;
+      if (cachedPdfLogoMark && cachedPdfLogoHeader) return;
       const img = document.getElementById('navbar-logo');
       if (!img || !img.complete || img.naturalWidth === 0) return;
       try {
-        const drawH = 50;
+        const drawH = 62;
         const drawW = Math.round(drawH * (img.naturalWidth / img.naturalHeight));
         cachedPdfLogoW = drawW;
         cachedPdfLogoH = drawH;
-        
-        // Use 4x resolution to ensure crisp text rendering in PDF
+
+        // Use 4x resolution to ensure crisp logo rendering in PDF
         const scale = 4;
         const c = document.createElement('canvas');
-        c.width = drawW * scale; 
+        c.width = drawW * scale;
         c.height = drawH * scale;
         const ctx = c.getContext('2d');
-        
-        ctx.fillStyle = `rgb(${PDF_COLORS.accent[0]}, ${PDF_COLORS.accent[1]}, ${PDF_COLORS.accent[2]})`;
-        ctx.fillRect(0, 0, c.width, c.height);
-        ctx.drawImage(img, 0, 0, c.width, c.height);
-        let dr = atob(c.toDataURL('image/jpeg', 0.9).split(',')[1]);
-        let hex = ''; for(let i=0;i<dr.length;i++) hex+=dr.charCodeAt(i).toString(16).padStart(2,'0');
-        cachedPdfLogoLight = hex + '>';
+        const pad = Math.max(8, Math.round(10 * scale));
+        const innerW = c.width - pad * 2;
+        const innerH = c.height - pad * 2;
 
+        // Build a faint watermark variant for background use.
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, c.width, c.height);
-        ctx.drawImage(img, 0, 0, c.width, c.height);
+        ctx.globalAlpha = 0.12;
+        ctx.drawImage(img, pad, pad, innerW, innerH);
+        ctx.globalAlpha = 1;
+        let dr = atob(c.toDataURL('image/jpeg', 0.88).split(',')[1]);
+        let hex = ''; for (let i = 0; i < dr.length; i++) hex += dr.charCodeAt(i).toString(16).padStart(2, '0');
+        cachedPdfLogoMark = hex + '>';
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, c.width, c.height);
+        ctx.drawImage(img, pad, pad, innerW, innerH);
         dr = atob(c.toDataURL('image/jpeg', 0.9).split(',')[1]);
-        hex = ''; for(let i=0;i<dr.length;i++) hex+=dr.charCodeAt(i).toString(16).padStart(2,'0');
-        cachedPdfLogoDark = hex + '>';
-      } catch(e) {
+        hex = ''; for (let i = 0; i < dr.length; i++) hex += dr.charCodeAt(i).toString(16).padStart(2, '0');
+        cachedPdfLogoHeader = hex + '>';
+      } catch (e) {
         console.warn('Could not encode logo for PDF:', e);
       }
     }
 
     function renderReportHeader(item, topY) {
       const lowerY = topY - item.height;
-      const headerLogo = cachedPdfLogoLight ? `q ${cachedPdfLogoW} 0 0 ${cachedPdfLogoH} ${margin + 20} ${topY - 25 - cachedPdfLogoH/2} cm /LogoLight Do Q` : '';
-      const textX = cachedPdfLogoLight ? margin + 30 + cachedPdfLogoW : margin + 24;
+      // Navy primary band
+      const textX = margin + 20;
+      const midY  = lowerY + item.height / 2;
       return [
-        rectCommand(margin, lowerY, contentWidth, item.height, PDF_COLORS.accent, null),
-        headerLogo,
-        textCommand('Karmic Intelligence Platform', textX, topY - 32, 12, 'F2', PDF_COLORS.surface),
-        textCommand(item.title, textX, topY - 58, 22, 'F2', PDF_COLORS.surface),
-        textCommand(item.subtitle, textX, topY - 78, 10, 'F1', PDF_COLORS.surface),
-        rectCommand(margin + contentWidth - 110, topY - 42, 86, 20, PDF_COLORS.light, null),
-        textCommand('CONFIDENTIAL', margin + contentWidth - 100, topY - 37, 9, 'F2', PDF_COLORS.danger)
+        // Navy backdrop
+        rectCommand(margin, lowerY, contentWidth, item.height, PDF_COLORS.navy, null),
+        // Gold accent left stripe
+        rectCommand(margin, lowerY, 4, item.height, PDF_COLORS.gold, null),
+        // Platform name (small, gold)
+        textCommand(PDF_BRAND.platform, textX, midY + 22, 7.5, 'F2', PDF_COLORS.gold),
+        // Report title (large, white)
+        textCommand(cleanPdfText(item.title), textX, midY + 4, 20, 'F2', PDF_COLORS.surface),
+        // Subtitle / date (small, light)
+        textCommand(item.subtitle, textX, midY - 14, 9, 'F1', [200, 212, 230]),
+        // CONFIDENTIAL badge (right)
+        rectCommand(margin + contentWidth - 106, midY - 8, 92, 18, PDF_COLORS.gold, null),
+        textCommand(PDF_BRAND.confidentiality, margin + contentWidth - 89, midY - 2, 8.5, 'F2', PDF_COLORS.navy),
       ].join('\n');
+    }
+
+    function renderSectionBanner(item, topY) {
+      const bannerY = topY - item.height;
+      return [
+        rectCommand(margin, bannerY, contentWidth, item.height, PDF_COLORS.navyMid, null),
+        rectCommand(margin, bannerY, 4, item.height, PDF_COLORS.gold, null),
+        textCommand(item.title.toUpperCase(), margin + 14, topY - 9, 10, 'F2', PDF_COLORS.surface),
+      ].join('\n');
+    }
+
+    function renderCoverPage(item, topY) {
+      const ph = 841.89;
+      const pw = 595.28;
+      const cx = pw / 2;
+      // Full navy background
+      const parts = [
+        rectCommand(0, 0, pw, ph, PDF_COLORS.navy, null),
+        // Top gold band
+        rectCommand(0, ph - 60, pw, 60, PDF_COLORS.gold, null),
+        // Gold bar left edge accent
+        rectCommand(0, 0, 5, ph, PDF_COLORS.gold, null),
+        // Bottom gold band
+        rectCommand(0, 0, pw, 50, PDF_COLORS.gold, null),
+      ];
+      // Company name in top gold band
+      parts.push(textCommand(PDF_BRAND.platform, margin + 10, ph - 22, 9, 'F2', PDF_COLORS.navy));
+      // Thin horizontal rule below logo area
+      parts.push(rectCommand(margin, ph - 72, pw - margin * 2, 1, [180, 196, 220], null));
+      // Report type label
+      parts.push(textCommand(PDF_BRAND.coverTagline, margin + 10, ph * 0.62, 9, 'F2', PDF_COLORS.gold));
+      // Report title
+      const titleLines = cleanPdfText(item.title).match(/.{1,40}(\s|$)/g) || [cleanPdfText(item.title)];
+      titleLines.slice(0, 3).forEach((tl, ti) =>
+        parts.push(textCommand(tl.trim(), margin + 10, ph * 0.58 - ti * 28, 22, 'F2', PDF_COLORS.surface))
+      );
+      // Horizontal divider rule
+      parts.push(rectCommand(margin + 10, ph * 0.45, 80, 3, PDF_COLORS.gold, null));
+      // Candidate name
+      if (item.candidateName) {
+        parts.push(textCommand('CANDIDATE', margin + 10, ph * 0.43, 7.5, 'F2', [180, 196, 220]));
+        parts.push(textCommand(cleanPdfText(item.candidateName), margin + 10, ph * 0.40, 14, 'F2', PDF_COLORS.surface));
+      }
+      // Date
+      parts.push(textCommand('DATE GENERATED', margin + 10, ph * 0.35, 7.5, 'F2', [180, 196, 220]));
+      parts.push(textCommand(item.genDate, margin + 10, ph * 0.32, 11, 'F1', PDF_COLORS.surface));
+      // CONFIDENTIAL watermark in bottom gold band
+      parts.push(textCommand('CONFIDENTIAL — FOR AUTHORISED USE ONLY', margin + 10, 18, 8, 'F2', PDF_COLORS.navy));
+      parts.push(textCommand('KARMIC HRMS', pw - margin - 80, 18, 8, 'F2', PDF_COLORS.navy));
+      return parts.join('\n');
     }
 
     function renderTableBox(item, topY) {
       const items = item.items || [];
-      const boxY = topY - item.height;
+      const hdrH = 22;
       const rowH = 24;
-      const labelW = 160;
-      
+      const labelW = 170;
+      const bodyH = items.length * rowH;
+      const boxY  = topY - item.height;
+
       const parts = [
-        rectCommand(margin, boxY, contentWidth, item.height, PDF_COLORS.surface, PDF_COLORS.line)
+        // Outer border
+        rectCommand(margin, boxY, contentWidth, item.height, PDF_COLORS.surface, PDF_COLORS.line),
+        // Navy header row
+        rectCommand(margin, topY - hdrH, contentWidth, hdrH, PDF_COLORS.navyMid, null),
+        textCommand('FIELD', margin + 12, topY - 8, 7.5, 'F2', PDF_COLORS.gold),
+        textCommand('VALUE', margin + labelW, topY - 8, 7.5, 'F2', PDF_COLORS.gold),
+        // Gold divider under header
+        rectCommand(margin, topY - hdrH, contentWidth, 2, PDF_COLORS.gold, null),
       ];
-      
+
       items.forEach((row, idx) => {
-        const rowY = topY - 12 - idx * rowH;
+        const rowTopY = topY - hdrH - idx * rowH;
+        const rowBotY = rowTopY - rowH;
+        // Alternating row bg
         if (idx % 2 === 0) {
-          parts.push(rectCommand(margin + 1, rowY - 16, contentWidth - 2, rowH, PDF_COLORS.light, null));
+          parts.push(rectCommand(margin + 1, rowBotY, contentWidth - 2, rowH, PDF_COLORS.light, null));
         }
-        parts.push(textCommand(row.label, margin + 12, rowY - 10, 9, 'F2', PDF_COLORS.muted));
-        parts.push(textCommand(cleanPdfText(row.value).substring(0, 70), margin + labelW, rowY - 10, 9, 'F1', PDF_COLORS.ink));
-        if (idx < items.length - 1) {
-          parts.push(lineCommand(margin, rowY - 16, margin + contentWidth, rowY - 16, PDF_COLORS.line, 0.5));
-        }
+        // Thin row separator
+        parts.push(lineCommand(margin + 1, rowBotY, margin + contentWidth - 1, rowBotY, PDF_COLORS.line, 0.4));
+        // Label column (navy text)
+        parts.push(textCommand(cleanPdfText(row.label).substring(0, 28), margin + 12, rowTopY - 9, 8.5, 'F2', PDF_COLORS.navyMid));
+        // Value column separator
+        parts.push(lineCommand(margin + labelW - 4, rowTopY, margin + labelW - 4, rowBotY, PDF_COLORS.line, 0.4));
+        // Value text
+        parts.push(textCommand(cleanPdfText(row.value).substring(0, 68), margin + labelW, rowTopY - 9, 9, 'F1', PDF_COLORS.ink));
       });
       return parts.join('\n');
     }
@@ -703,8 +922,8 @@
     function renderScoreCards(item, topY) {
       const cards = item.cards || [];
       const cols = Math.min(4, Math.max(1, cards.length));
-      const gap = 12;
-      const cardH = 72;
+      const gap = 10;
+      const cardH = 76;
       const cardW = (contentWidth - gap * (cols - 1)) / cols;
       return cards.map((card, idx) => {
         const row = Math.floor(idx / cols);
@@ -713,11 +932,20 @@
         const cardTop = topY - row * (cardH + gap);
         const cardY = cardTop - cardH;
         const color = card.color || PDF_COLORS.accent;
+        const midX = x + cardW / 2;
         return [
+          // Card shadow-ish (slightly offset dark border)
+          rectCommand(x + 1, cardY - 1, cardW, cardH, [220, 228, 240], null),
+          // Card white body
           rectCommand(x, cardY, cardW, cardH, PDF_COLORS.surface, PDF_COLORS.line),
-          rectCommand(x, cardTop - 6, cardW, 6, color, null),
-          textCommand(card.label, x + 16, cardTop - 28, 9, 'F2', PDF_COLORS.ink),
-          textCommand(card.value, x + 16, cardTop - 52, 18, 'F2', color),
+          // Colored bottom accent stripe
+          rectCommand(x, cardY, cardW, 4, color, null),
+          // Label (upper, muted small caps)
+          textCommand(card.label.toUpperCase(), x + 10, cardTop - 12, 7, 'F2', PDF_COLORS.muted),
+          // Thin separator
+          lineCommand(x + 10, cardTop - 20, x + cardW - 10, cardTop - 20, PDF_COLORS.line, 0.5),
+          // Large value (centered-ish)
+          textCommand(card.value, x + 10, cardTop - 50, 19, 'F2', color),
         ].join('\n');
       }).join('\n');
     }
@@ -725,25 +953,34 @@
     function renderBarChart(item, topY) {
       const bars = item.bars || [];
       const chartY = topY - item.height;
-      const labelX = margin + 16;
-      const barX = margin + 180;
-      const barW = contentWidth - 260;
-      const valueX = margin + contentWidth - 48;
-      const rowH = 26;
-      const parts = [
+      const labelX = margin + 14;
+      const barX   = margin + 188;
+      const barW   = contentWidth - 262;
+      const valueX = margin + contentWidth - 54;
+      const rowH   = 26;
+      const hdrH   = 22;
+      const parts  = [
         rectCommand(margin, chartY, contentWidth, item.height, PDF_COLORS.surface, PDF_COLORS.line),
+        // Navy header
+        rectCommand(margin, topY - hdrH, contentWidth, hdrH, PDF_COLORS.navyMid, null),
+        rectCommand(margin, topY - hdrH, contentWidth, 2, PDF_COLORS.gold, null),
+        textCommand('METRIC', labelX, topY - 8, 7.5, 'F2', PDF_COLORS.gold),
+        textCommand('SCORE', valueX - 4, topY - 8, 7.5, 'F2', PDF_COLORS.gold),
       ];
-
       bars.forEach((bar, idx) => {
-        const yRow = topY - 26 - idx * rowH;
-        const max = Number(bar.max) || 100;
+        const yRow = topY - hdrH - 14 - idx * rowH;
+        const max   = Number(bar.max) || 100;
         const value = Math.max(0, Math.min(max, Number(bar.value) || 0));
-        const pct = max ? value / max : 0;
+        const pct   = max ? value / max : 0;
         const color = bar.color || PDF_COLORS.accent;
-        parts.push(textCommand(bar.label, labelX, yRow, 9, 'F1', PDF_COLORS.ink));
-        parts.push(rectCommand(barX, yRow - 2, barW, 6, PDF_COLORS.soft, null));
-        parts.push(rectCommand(barX, yRow - 2, barW * pct, 6, color, null));
-        parts.push(textCommand(bar.display || `${Math.round(value)}%`, valueX, yRow, 9, 'F2', PDF_COLORS.ink));
+        if (idx % 2 === 0)
+          parts.push(rectCommand(margin + 1, yRow - 14, contentWidth - 2, rowH, PDF_COLORS.light, null));
+        parts.push(textCommand(bar.label, labelX, yRow, 8.5, 'F1', PDF_COLORS.ink));
+        // Track
+        parts.push(rectCommand(barX, yRow - 3, barW, 7, [225, 232, 242], null));
+        // Fill
+        parts.push(rectCommand(barX, yRow - 3, barW * pct, 7, color, null));
+        parts.push(textCommand(bar.display || `${Math.round(value)}%`, valueX, yRow, 9, 'F2', color));
       });
       return parts.join('\n');
     }
@@ -788,6 +1025,7 @@
       return textCommand(item.text, margin, topY, item.size || 10, item.font || 'F1', item.color || PDF_COLORS.ink);
     }
 
+    loadLogosForPdf();
     lines.forEach((line) => {
       const size = line.size || 10;
       const spaceBefore = line.spaceBefore || 0;
@@ -802,8 +1040,12 @@
         y = pageHeight - margin;
       }
       y -= spaceBefore;
-      if (line.type === 'reportHeader') {
+      if (line.type === 'coverPage') {
+        pages[pages.length - 1].push(renderCoverPage(line, y));
+      } else if (line.type === 'reportHeader') {
         pages[pages.length - 1].push(renderReportHeader(line, y));
+      } else if (line.type === 'sectionBanner') {
+        pages[pages.length - 1].push(renderSectionBanner(line, y));
       } else if (line.type === 'divider') {
         pages[pages.length - 1].push(lineCommand(margin, y - 2, pageWidth - margin, y - 2, PDF_COLORS.line, 0.8));
       } else if (line.type === 'scoreCards') {
@@ -822,42 +1064,58 @@
 
     const objects = [];
     const fontBoldObj = 4 + pages.length * 2;
-    
+
     let resourcesStr = `<< /Font << /F1 3 0 R /F2 ${fontBoldObj} 0 R >> >>`;
-    let lightLogoObj = 0, darkLogoObj = 0;
-    
-    if (cachedPdfLogoLight && cachedPdfLogoDark) {
-        lightLogoObj = fontBoldObj + 1;
-        darkLogoObj = fontBoldObj + 2;
-        resourcesStr = `<< /Font << /F1 3 0 R /F2 ${fontBoldObj} 0 R >> /XObject << /LogoLight ${lightLogoObj} 0 R /LogoDark ${darkLogoObj} 0 R >> >>`;
+    let watermarkLogoObj = 0;
+    let headerLogoObj = 0;
+
+    if (cachedPdfLogoMark) {
+      watermarkLogoObj = fontBoldObj + 1;
+      if (cachedPdfLogoHeader) {
+        headerLogoObj = fontBoldObj + 2;
+        resourcesStr = `<< /Font << /F1 3 0 R /F2 ${fontBoldObj} 0 R >> /XObject << /LogoMark ${watermarkLogoObj} 0 R /LogoHeader ${headerLogoObj} 0 R >> >>`;
+      } else {
+        resourcesStr = `<< /Font << /F1 3 0 R /F2 ${fontBoldObj} 0 R >> /XObject << /LogoMark ${watermarkLogoObj} 0 R >> >>`;
+      }
     }
 
-    const kids = pages.map((_, idx) => `${(darkLogoObj || fontBoldObj) + 1 + idx * 2} 0 R`).join(' ');
+    const kids = pages.map((_, idx) => `${(watermarkLogoObj || fontBoldObj) + 1 + idx * 2} 0 R`).join(' ');
     objects[1] = '<< /Type /Catalog /Pages 2 0 R >>';
     objects[2] = `<< /Type /Pages /Kids [${kids}] /Count ${pages.length} >>`;
     objects[3] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>';
     objects[fontBoldObj] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>';
-    
-    if (lightLogoObj) {
-        objects[lightLogoObj] = `<< /Type /XObject /Subtype /Image /Width ${cachedPdfLogoW} /Height ${cachedPdfLogoH} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter [/ASCIIHexDecode /DCTDecode] /Length ${cachedPdfLogoLight.length} >> stream\n${cachedPdfLogoLight}\nendstream`;
-        objects[darkLogoObj] = `<< /Type /XObject /Subtype /Image /Width ${cachedPdfLogoW} /Height ${cachedPdfLogoH} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter [/ASCIIHexDecode /DCTDecode] /Length ${cachedPdfLogoDark.length} >> stream\n${cachedPdfLogoDark}\nendstream`;
+
+    if (watermarkLogoObj) {
+      objects[watermarkLogoObj] = `<< /Type /XObject /Subtype /Image /Width ${cachedPdfLogoW} /Height ${cachedPdfLogoH} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter [/ASCIIHexDecode /DCTDecode] /Length ${cachedPdfLogoMark.length} >> stream\n${cachedPdfLogoMark}\nendstream`;
+      if (headerLogoObj && cachedPdfLogoHeader) {
+        objects[headerLogoObj] = `<< /Type /XObject /Subtype /Image /Width ${cachedPdfLogoW} /Height ${cachedPdfLogoH} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter [/ASCIIHexDecode /DCTDecode] /Length ${cachedPdfLogoHeader.length} >> stream\n${cachedPdfLogoHeader}\nendstream`;
+      }
     }
 
     pages.forEach((page, idx) => {
-      const pageObj = (darkLogoObj || fontBoldObj) + 1 + idx * 2;
+      const pageObj = (watermarkLogoObj || fontBoldObj) + 1 + idx * 2;
       const streamObj = pageObj + 1;
-      
-      const footerH = 14;
-      const footerW = Math.round(footerH * (cachedPdfLogoW/cachedPdfLogoH));
-      const footerLogo = darkLogoObj ? `q ${footerW} 0 0 ${footerH} ${margin} 20 cm /LogoDark Do Q` : '';
-      
+      const wmW = 300;
+      const wmH = cachedPdfLogoW && cachedPdfLogoH ? Math.round(wmW * (cachedPdfLogoH / cachedPdfLogoW)) : 0;
+      const watermark = (watermarkLogoObj && wmH)
+        ? `q ${wmW} 0 0 ${wmH} ${(pageWidth - wmW) / 2} ${(pageHeight - wmH) / 2} cm /LogoMark Do Q`
+        : '';
+      const pageFrame = rectCommand(margin - 10, 34, pageWidth - ((margin - 10) * 2), pageHeight - 68, null, PDF_COLORS.line);
+
       const footer = [
-        lineCommand(margin, 36, pageWidth - margin, 36, PDF_COLORS.line, 0.5),
-        footerLogo,
-        textCommand('Karmic Intelligence Platform • Proprietary & Confidential', margin + (darkLogoObj ? footerW + 8 : 0), 24, 8, 'F1', PDF_COLORS.muted),
-        textCommand(`Page ${idx + 1} of ${pages.length}`, pageWidth - margin - 50, 24, 8, 'F1', PDF_COLORS.muted),
+        rectCommand(0, pageHeight - 40, pageWidth, 40, PDF_COLORS.surface, null),
+        lineCommand(0, pageHeight - 41, pageWidth, pageHeight - 41, PDF_COLORS.line, 0.8),
+        (headerLogoObj ? `q 40 0 0 20 ${margin - 6} ${pageHeight - 30} cm /LogoHeader Do Q` : ''),
+        textCommand(REPORT_TITLE, pageWidth / 2 - 60, pageHeight - 24, 9, 'F2', PDF_COLORS.navy),
+        textCommand(PDF_BRAND.confidentiality, pageWidth - margin - 64, pageHeight - 24, 8, 'F2', PDF_COLORS.muted),
+        // Navy footer bar
+        rectCommand(0, 0, pageWidth, 40, PDF_COLORS.navy, null),
+        // Gold top rule
+        rectCommand(0, 40, pageWidth, 2, PDF_COLORS.gold, null),
+        textCommand('Karmic HRMS  |  Enterprise Report Format  |  Proprietary & Confidential', margin, 14, 7.5, 'F1', [180, 196, 220]),
+        textCommand(`Page ${idx + 1} of ${pages.length}`, pageWidth - margin - 44, 14, 8, 'F2', PDF_COLORS.gold),
       ].join('\n');
-      const stream = [...page, footer].join('\n');
+      const stream = [watermark, pageFrame, ...page, footer].join('\n');
       objects[pageObj] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources ${resourcesStr} /Contents ${streamObj} 0 R >>`;
       objects[streamObj] = `<< /Length ${encoder.encode(stream).length} >>\nstream\n${stream}\nendstream`;
     });
@@ -889,11 +1147,35 @@
     URL.revokeObjectURL(url);
   }
 
-  function downloadReportPdf(filename, title, buildContent) {
-    loadLogosForPdf();
+  function downloadReportPdf(filename, title, buildContent, options = {}) {
+    const {
+      includeExecutivePages = true,
+      includeBehavioralHistory = true,
+    } = options;
     const lines = [];
-    addReportHeader(lines, title);
+    // ── Full-page cover ──────────────────────────────────────────────────────
+    const candidateName = (state.profile && state.profile.candidate_name) || '';
+    const genDate = new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'long', year:'numeric' });
+    lines.push({
+      type: 'coverPage',
+      title,
+      candidateName,
+      genDate,
+      height: 841.89 - 88,   // full usable page height
+      spaceBefore: 0,
+    });
+    lines.push({ type: 'pageBreak', height: 0, spaceBefore: 0 });
+    // ── Section header for the first content page ────────────────────────────
+    addReportHeader(lines, REPORT_TITLE);
+    if (includeExecutivePages) {
+      addExecutiveSummaryPage(lines, REPORT_TITLE);
+      addComparisonDashboard(lines);
+      lines.push({ type: 'pageBreak', height: 0, spaceBefore: 0 });
+    }
     buildContent(lines);
+    if (includeBehavioralHistory) {
+      addBehavioralHistoryPage(lines);
+    }
     downloadBlob(buildPdfBlob(lines), filename);
   }
 
@@ -905,7 +1187,7 @@
     const comp = data.compensation_emphasis_index || {};
 
     addSection(lines, title);
-    
+
     addScoreCards(lines, [
       { label: 'Leadership Score', value: `${toTwo(lead.score)}`, color: scoreColor(lead.score * 10) },
       { label: 'Compensation Index', value: `${toTwo(comp.score)}`, color: scoreColor(comp.score) },
@@ -925,19 +1207,22 @@
       addList(lines, 'Links', profile.links);
       addList(lines, 'Certifications / Other', profile.certifications);
     }
-    
-    addTable(lines, 'Analysis Output', [
+
+    addTable(lines, 'Assessment Summary', [
       { label: 'Primary Intent', value: intent.primary_intent },
       { label: 'Secondary Intent', value: intent.secondary_intent },
       { label: 'Leadership Confidence', value: lead.confidence == null ? '-' : fmtPct01(lead.confidence) },
       { label: 'Compensation Confidence', value: comp.confidence == null ? '-' : fmtPct01(comp.confidence) }
     ]);
 
-    addList(lines, 'Technical Skills', skills.technical);
+    addSkillTable(lines, 'Technical Skills', skills.technical);
     addList(lines, 'Soft Skills', skills.soft);
-    addList(lines, 'Leadership Evidence', lead.evidence);
-    addList(lines, 'Compensation Evidence', comp.evidence);
-    addList(lines, 'Stress / Workload Indicators', lead.stress_indicators);
+    addList(lines, 'Leadership Indicators', lead.evidence);
+    addList(lines, 'Salary Indicators', (comp.evidence && comp.evidence.length) ? comp.evidence : ['No salary indicators detected.']);
+    addList(lines, 'Workload Risk Assessment', (lead.stress_indicators && lead.stress_indicators.length) ? lead.stress_indicators : ['No stress or workload concerns detected.']);
+    addTable(lines, 'Final Hiring Recommendation', [
+      { label: 'Recommendation', value: hiringRecommendation(lead.score, skills.confidence, 0) }
+    ]);
     return true;
   }
 
@@ -948,7 +1233,7 @@
     const team = data.team_compatibility || {};
 
     addSection(lines, title);
-    
+
     addTable(lines, 'Workforce Intelligence Summary', [
       { label: 'Employee', value: data.employee_name || state.fileName || '-' },
       { label: 'Project', value: data.project_name || '-' },
@@ -959,7 +1244,7 @@
       { label: 'Skill Overlap', value: team.skill_overlap_score == null ? '-' : fmtPct01(team.skill_overlap_score) },
       { label: 'Behavioral Alignment', value: team.behavioral_alignment_score == null ? '-' : fmtPct01(team.behavioral_alignment_score) }
     ]);
-    
+
     addList(lines, 'Missing Skills', project.missing_skills);
     addList(lines, 'Compatibility Notes', team.notes);
     return true;
@@ -984,7 +1269,7 @@
       { label: 'Team Compatibility', value: `${teamCompatScore}/100`, color: scoreColor(teamCompatScore) },
       { label: 'Communication Score', value: `${communicationScore}/100`, color: scoreColor(communicationScore) },
     ]);
-    
+
     addTable(lines, 'Candidate Overview', [
       { label: 'Candidate Name', value: data.candidate_name },
       { label: 'Target Job Role', value: data.job_role },
@@ -996,11 +1281,11 @@
       { label: 'Best Role Recommendation', value: recommendation.best_role },
       { label: 'Recommendation Factor', value: recommendation.confidence == null ? '-' : `${recommendation.confidence}%` }
     ]);
-    
+
     if (recommendation.reasoning) {
-        addWrappedLine(lines, `Recommendation Reasoning: ${cleanPdfText(recommendation.reasoning)}`, 10, 4);
+      addWrappedLine(lines, `Recommendation Reasoning: ${cleanPdfText(recommendation.reasoning)}`, 10, 4);
     }
-    
+
     addBarChart(lines, 'OCEAN Personality Traits', [
       { label: 'Openness', value: traits.openness || 0, color: PDF_COLORS.accent },
       { label: 'Conscientiousness', value: traits.conscientiousness || 0, color: PDF_COLORS.blue },
@@ -1022,14 +1307,14 @@
     addList(lines, 'Actionable Team Recommendations', team.recommendations);
     addList(lines, 'Core Quality Strengths', profile.dynamic_strengths || profile.strengths);
     addList(lines, 'Identified Development Areas', profile.challenges || profile.development_areas);
-    
+
     lines.push({ type: 'divider', height: 10, spaceBefore: 6 });
     if (data.summary) {
-        addWrappedLine(lines, `Executive Summary: ${cleanPdfText(data.summary)}`, 10, 4);
+      addWrappedLine(lines, `Executive Summary: ${cleanPdfText(data.summary)}`, 10, 4);
     } else {
-        addWrappedLine(lines, `Executive Summary: ${cleanPdfText(document.getElementById('bSummary')?.textContent)}`, 10, 4);
+      addWrappedLine(lines, `Executive Summary: ${cleanPdfText(document.getElementById('bSummary')?.textContent)}`, 10, 4);
     }
-    
+
     return true;
   }
 
@@ -1057,7 +1342,7 @@
       { label: 'Stress indicator', value: stressIndicatorPct, display: `${stressIndicatorPct}%`, color: scoreColor(stressIndicatorPct) },
       { label: 'Risk level', value: riskScore, display: `${data.risk_level || '-'}`, color: scoreColor(riskScore) },
     ]);
-    addTable(lines, 'Stress Profile Analysis', [
+    addTable(lines, 'Assessment Summary', [
       { label: 'Status assessment', value: data.status },
       { label: 'Calculated Risk Limit', value: data.risk_level },
       { label: 'Stress Severity', value: data.stress_level },
@@ -1067,7 +1352,7 @@
       { label: 'Meeting Bandwidth', value: data.meeting_load_score == null ? '-' : `${meetingLoadScore.toFixed(1)}/100` },
       { label: 'Delivery Commitment', value: data.task_completion_score == null ? '-' : `${taskCompletionScore.toFixed(1)}%` },
     ]);
-    
+
     addTable(lines, 'Employee Workload Input', [
       { label: 'Total Tasks Assigned', value: input.tasks_assigned },
       { label: 'Total Tasks Completed', value: input.tasks_completed },
@@ -1077,13 +1362,13 @@
       { label: 'Total Meeting Hours', value: input.meeting_hours },
       { label: 'Weekend Work Logged', value: input.weekend_work === 1 ? 'Yes' : input.weekend_work === 0 ? 'No' : '-' },
     ]);
-    
-    addList(lines, 'Calculated Insights', data.insights);
+
+    addList(lines, 'Leadership Indicators', data.insights);
     addList(lines, 'Actionable Recommendations', data.recommendations);
-    
+
     if (data.future_risk) {
-        lines.push({ type: 'divider', height: 10, spaceBefore: 6 });
-        addWrappedLine(lines, `Future Risk Prognosis: ${data.future_risk}`, 10, 4, { color: riskScore >= 70 ? PDF_COLORS.danger : PDF_COLORS.ink });
+      lines.push({ type: 'divider', height: 10, spaceBefore: 6 });
+      addWrappedLine(lines, `Future Risk Prognosis: ${data.future_risk}`, 10, 4, { color: riskScore >= 70 ? PDF_COLORS.danger : PDF_COLORS.ink });
     }
     return true;
   }
@@ -1105,21 +1390,155 @@
   }
 
   function buildCurrentCandidateReport(lines) {
-    let added = false;
-    added = appendResumeReport(lines, state.current, 'Current Resume Analysis', state.profile) || added;
-    added = appendWorkforceReport(lines, state.workforce, 'Current Workforce Intelligence') || added;
-    added = appendBehavioralReport(lines, currentAnalysis, 'Current Behavioral Analysis') || added;
+    const resumeData = state.current || (state.history[0] && state.history[0].payload) || {};
+    const profile = state.profile || {};
+    const workforce = state.workforce || {};
+    const behavioral = typeof currentAnalysis !== 'undefined' ? (currentAnalysis || {}) : {};
+    const stressHistory = (typeof stressAnalysisHistory !== 'undefined') ? stressAnalysisHistory : [];
+    const stress = stressHistory.length > 0 ? stressHistory[stressHistory.length - 1] : {};
 
-    if (stressAnalysisHistory.length) {
-      addTrendChart(lines, 'Recent Stress Trend Graph', stressAnalysisHistory.slice(-5));
-      appendStressReport(lines, stressAnalysisHistory[0], 'Current Stress & Workload Analysis');
-      added = true;
+    const skills = resumeData.skills || {};
+    const intent = resumeData.intent_profile || {};
+    const lead = resumeData.leadership_analysis || {};
+    const comp = resumeData.compensation_emphasis_index || {};
+    const communication = behavioral.communication || {};
+    const teamCompat = behavioral.team_compatibility || {};
+
+    // A. Candidate Details
+    addSection(lines, 'A. Candidate Details');
+    addTable(lines, 'Candidate Profile', [
+      { label: 'Full Name', value: profile.candidate_name || behavioral.candidate_name || 'N/A' },
+      { label: 'Email', value: profile.email || 'N/A' },
+      { label: 'Phone', value: profile.phone || 'N/A' },
+      { label: 'Total Experience', value: profile.experience || 'N/A' },
+      { label: 'Predicted Job Role', value: (workforce.job_role && workforce.job_role.role) || behavioral.job_role || 'N/A' }
+    ]);
+
+    if (profile.education && profile.education.length > 0) {
+      addTable(lines, 'Academic Background', profile.education.map((ed, i) => ({ label: `Institution / Degree ${i + 1}`, value: ed })));
     }
-    return added;
+    if (profile.certifications && profile.certifications.length > 0) {
+      addTable(lines, 'Professional Certifications', profile.certifications.map((cert, i) => ({ label: `Certification ${i + 1}`, value: cert })));
+    }
+
+    addWrappedLine(lines, `Executive Resume Summary: ${cleanPdfText(profile.resume_summary || profile.summary || 'N/A')}`, 10, 4);
+
+    // B. Resume Analysis Results
+    addSection(lines, 'B. Resume Analysis Results');
+    addScoreCards(lines, [
+      { label: 'Skill Score', value: `${toPct(skills.confidence)}%`, color: PDF_COLORS.blue },
+      { label: 'Experience Score', value: `${toPct(profile.experience_score || 85)}%`, color: PDF_COLORS.ok },
+      { label: 'Leadership Score', value: `${toTwo(lead.score)}`, color: scoreColor((lead.score || 0) * 10) }
+    ]);
+    addTable(lines, 'Assessment Summary', [
+      { label: 'Intent Analysis', value: intent.primary_intent || 'N/A' },
+      { label: 'Compensation Analysis', value: comp.emphasis_level || `${toTwo(comp.score)}` },
+      { label: 'Recommended Role', value: (workforce.job_role && workforce.job_role.role) || behavioral.job_role || 'N/A' }
+    ]);
+
+    addSkillTable(lines, 'Technical Proficiencies', skills.technical);
+    if (skills.soft && skills.soft.length > 0) {
+      addSkillTable(lines, 'Soft Skills & Attributes', skills.soft);
+    }
+
+    addList(lines, 'Core Strengths Identified', profile.dynamic_strengths || profile.strengths);
+    addList(lines, 'Areas for Development', profile.challenges || profile.development_areas);
+
+    // C. Behavioral Analysis Results
+    addSection(lines, 'C. Behavioral Analysis Results');
+    addScoreCards(lines, [
+      { label: 'Team Compatibility', value: `${Math.round(teamCompat.compatibility_score || 0)}%`, color: scoreColor(teamCompat.compatibility_score) },
+      { label: 'Leadership Potential', value: `${toPct(behavioral.leadership_potential || (lead.score || 0) / 10)}%`, color: PDF_COLORS.blue },
+      { label: 'Stress Risk', value: stress.risk_level || 'Low', color: stress.risk_level === 'High' ? PDF_COLORS.danger : PDF_COLORS.ok }
+    ]);
+    addTable(lines, 'Behavioral Output', [
+      { label: 'Personality Indicators', value: behavioral.personality_type || 'N/A' },
+      { label: 'Toxicity Risk', value: behavioral.toxicity_risk || 'Low' },
+      { label: 'Communication Style', value: communication.sentiment || 'N/A' },
+      { label: 'Work Attitude', value: behavioral.work_attitude || 'Professional' }
+    ]);
+
+    // Personality Trait Graphs
+    const traits = behavioral.personality_traits || {};
+    addBarChart(lines, 'OCEAN Personality Traits Analysis', [
+      { label: 'Openness', value: traits.openness || 0, color: PDF_COLORS.accent },
+      { label: 'Conscientiousness', value: traits.conscientiousness || 0, color: PDF_COLORS.blue },
+      { label: 'Extraversion', value: traits.extraversion || 0, color: PDF_COLORS.warning },
+      { label: 'Agreeableness', value: traits.agreeableness || 0, color: PDF_COLORS.ok },
+      { label: 'Neuroticism', value: traits.neuroticism || 0, color: PDF_COLORS.rose },
+    ]);
+
+    const roleCompatibility = Object.entries(behavioral.role_compatibility || {})
+      .sort((a, b) => Number(b[1]) - Number(a[1]))
+      .slice(0, 5)
+      .map(([label, value]) => ({ label, value: Number(value) || 0, color: scoreColor(value) }));
+    if (roleCompatibility.length > 0) {
+      addBarChart(lines, 'Top Role Compatibility Scores', roleCompatibility);
+    }
+
+    addList(lines, 'Positive Traits', (behavioral.personality_profile && behavioral.personality_profile.dynamic_strengths) || (behavioral.personality_profile && behavioral.personality_profile.strengths) || []);
+    addList(lines, 'Negative Traits', (behavioral.personality_profile && behavioral.personality_profile.challenges) || (behavioral.personality_profile && behavioral.personality_profile.development_areas) || []);
+
+    // D. Final Recommendation
+    addSection(lines, 'D. Final Recommendation');
+    const fitScore = behavioral.behavioral_fit_score || behavioral.final_score || 0;
+    const hrRec = fitScore >= 70 ? 'Hire' : fitScore >= 50 ? 'Review' : 'Reject';
+    addTable(lines, 'Recommendation Summary', [
+      { label: 'Final HR Recommendation', value: hrRec },
+      { label: 'Best Department', value: (behavioral.recommendation_data && behavioral.recommendation_data.best_department) || 'Engineering' },
+      { label: 'Team Fit', value: behavioral.team_fit || 'N/A' },
+      { label: 'Project Compatibility', value: `${toPct(workforce.project_skill_match && workforce.project_skill_match.match_score)}%` }
+    ]);
+    addList(lines, 'Risk Notes', behavioral.risk_flags || teamCompat.potential_conflicts || []);
+
+    // E. Stress & Workload Analysis
+    if (stressHistory.length > 0) {
+      addSection(lines, 'E. Stress & Workload Analysis');
+      const workloadScore = Number(stress.workload_score) || 0;
+      const meetingLoadScore = Number(stress.meeting_load_score) || 0;
+      const taskCompletionScore = Number(stress.task_completion_score) || 0;
+      const stressIndicatorPct = stress.stress_indicator == null ? 0 : Math.round(Number(stress.stress_indicator) * 100);
+      const riskMap = { NORMAL: 30, HIGH: 70, CRITICAL: 100 };
+      const riskScore = riskMap[stress.risk_level] || 30;
+
+      addScoreCards(lines, [
+        { label: 'Stress Severity', value: stress.stress_level || '-', color: stress.stress_level === 'High' ? PDF_COLORS.danger : stress.stress_level === 'Medium' ? PDF_COLORS.warning : PDF_COLORS.ok },
+        { label: 'Risk Factor', value: stress.risk_level || '-', color: scoreColor(riskScore) },
+        { label: 'Workload Efficiency', value: `${workloadScore.toFixed(1)}/100`, color: scoreColor(workloadScore) },
+        { label: 'Task Delivery', value: `${taskCompletionScore.toFixed(1)}%`, color: scoreColor(taskCompletionScore) },
+      ]);
+
+      addTrendChart(lines, 'Recent Stress & Workload Trend', stressHistory.slice(-5));
+
+      addBarChart(lines, 'Current Workload Profile', [
+        { label: 'Workload score', value: workloadScore, display: `${workloadScore.toFixed(1)}/100`, color: scoreColor(workloadScore) },
+        { label: 'Meeting load', value: meetingLoadScore, display: `${meetingLoadScore.toFixed(1)}/100`, color: scoreColor(meetingLoadScore) },
+        { label: 'Task completion', value: taskCompletionScore, display: `${taskCompletionScore.toFixed(1)}%`, color: scoreColor(taskCompletionScore) },
+        { label: 'Stress indicator', value: stressIndicatorPct, display: `${stressIndicatorPct}%`, color: scoreColor(stressIndicatorPct) },
+        { label: 'Risk level', value: riskScore, display: `${stress.risk_level || '-'}`, color: scoreColor(riskScore) },
+      ]);
+
+      const input = stress.input || stress.employee_data || {};
+      addTable(lines, 'Employee Workload Input', [
+        { label: 'Total Tasks Assigned', value: input.tasks_assigned },
+        { label: 'Total Tasks Completed', value: input.tasks_completed },
+        { label: 'Overdue / Blocked Tasks', value: input.overdue_tasks },
+        { label: 'Working Hours Per Day', value: input.working_hours_per_day },
+        { label: 'Live Meetings Per Day', value: input.meetings_per_day },
+        { label: 'Weekend Work Logged', value: input.weekend_work === 1 ? 'Yes' : input.weekend_work === 0 ? 'No' : '-' },
+      ]);
+
+      addList(lines, 'Calculated Insights', stress.insights || []);
+      addList(lines, 'Actionable Recommendations', stress.recommendations || []);
+    }
+
+    return true;
   }
 
   function buildAllReports(lines) {
     let added = false;
+    addExecutiveSummaryPage(lines, 'Talent Intelligence Reports');
+    addComparisonDashboard(lines);
     added = appendResumeReport(lines, state.current, 'Current Resume Analysis', state.profile) || added;
     added = appendWorkforceReport(lines, state.workforce, 'Current Workforce Intelligence') || added;
     added = appendBehavioralReport(lines, currentAnalysis, 'Current Behavioral Analysis') || added;
@@ -1136,6 +1555,7 @@
       appendHistorySummary(lines);
       added = true;
     }
+    addBehavioralHistoryPage(lines);
 
     return added;
   }
@@ -1494,7 +1914,7 @@
           <div class="circular-scale-container">
             <div class="scale-label left">Agree</div>
             <div class="scale-options">`;
-      
+
       // Render from Strongly Agree (5) on the left to Strongly Disagree (1) on the right
       const scores = [5, 4, 3, 2, 1];
       scores.forEach(score => {
@@ -1522,30 +1942,30 @@
       radio.addEventListener('change', () => {
         let answeredCount = 0;
         const totalCount = Object.keys(OCEAN_QUESTIONS).length;
-        
+
         Object.keys(OCEAN_QUESTIONS).forEach(k => {
-            const qsContainer = document.getElementById(`oq-container-${k}`);
-            const checked = container.querySelector(`input[name="${k}"]:checked`);
-            if (checked) {
-               answeredCount++;
-               qsContainer.classList.add('answered-question');
-               qsContainer.style.borderColor = 'var(--bs-success)';
-               qsContainer.style.boxShadow = '0 0.125rem 0.25rem rgba(25,135,84,0.15)'; // Success tint shadow
-            }
+          const qsContainer = document.getElementById(`oq-container-${k}`);
+          const checked = container.querySelector(`input[name="${k}"]:checked`);
+          if (checked) {
+            answeredCount++;
+            qsContainer.classList.add('answered-question');
+            qsContainer.style.borderColor = 'var(--bs-success)';
+            qsContainer.style.boxShadow = '0 0.125rem 0.25rem rgba(25,135,84,0.15)'; // Success tint shadow
+          }
         });
 
         // Update progress bar
         const oceanProgressBar = document.getElementById('oceanProgressBar');
         const oceanProgressText = document.getElementById('oceanProgressText');
         if (oceanProgressBar && oceanProgressText) {
-            const pct = Math.round((answeredCount / totalCount) * 100);
-            oceanProgressBar.style.width = pct + '%';
-            oceanProgressText.textContent = `${answeredCount} / ${totalCount} Answered`;
-            if (answeredCount === totalCount) {
-               oceanProgressBar.classList.remove('progress-bar-striped', 'progress-bar-animated');
-               oceanProgressText.classList.replace('bg-primary', 'bg-success');
-               oceanProgressText.innerText = "Completed!";
-            }
+          const pct = Math.round((answeredCount / totalCount) * 100);
+          oceanProgressBar.style.width = pct + '%';
+          oceanProgressText.textContent = `${answeredCount} / ${totalCount} Answered`;
+          if (answeredCount === totalCount) {
+            oceanProgressBar.classList.remove('progress-bar-striped', 'progress-bar-animated');
+            oceanProgressText.classList.replace('bg-primary', 'bg-success');
+            oceanProgressText.innerText = "Completed!";
+          }
         }
       });
     });
@@ -1587,7 +2007,7 @@
     });
   }
 
-  window.addTeamMember = function() {
+  window.addTeamMember = function () {
     teamMembers.push({
       name: `Team Member ${teamMembers.length + 1}`,
       openness: 50,
@@ -1599,7 +2019,7 @@
     generateTeamMemberManager();
   };
 
-  window.removeTeamMember = function(idx) {
+  window.removeTeamMember = function (idx) {
     teamMembers.splice(idx, 1);
     generateTeamMemberManager();
   };
@@ -1688,11 +2108,11 @@
       // Execute frontend assessment logic to get real-time dynamic scores
       scenario.compatibility_score = calculateTeamCompatibility(scenario);
       scenario.dynamics_score = calculateTeamDynamics(scenario);
-      
+
       const compatScore = scenario.compatibility_score;
       const dynamicsScore = scenario.dynamics_score;
       const color = compatScore >= 70 ? 'success' : compatScore >= 50 ? 'warning' : 'danger';
-      
+
       // Calculate dynamic team compatibility with current members
       const membersList = scenario.members.map(m => `
         <div class="team-member-item mb-2 p-2 border-bottom">
@@ -1706,7 +2126,7 @@
           </div>
         </div>
       `).join('');
-      
+
       html += `
       <div class="team-scenario-card p-3 border rounded mb-3 ${compatScore < 50 ? 'warning-low' : compatScore >= 70 ? 'warning-good' : 'warning-medium'}" draggable="true" data-team-id="${scenario.id}">
         <div class="d-flex justify-content-between align-items-start mb-2">
@@ -1763,11 +2183,11 @@
       card.addEventListener('drop', (e) => {
         e.preventDefault();
         card.classList.remove('drag-over');
-        
+
         const memberName = e.dataTransfer.getData('text/member-name');
         const sourceTeamId = parseInt(e.dataTransfer.getData('text/source-team-id'));
         const destTeamId = parseInt(card.dataset.teamId);
-        
+
         if (memberName && sourceTeamId && destTeamId && sourceTeamId !== destTeamId) {
           window.moveTeamMember(sourceTeamId, destTeamId, memberName);
         }
@@ -1787,21 +2207,21 @@
   function moveTeamMember(sourceTeamId, destTeamId, memberName) {
     const sourceTeam = teamScenarios.find(s => s.id === sourceTeamId);
     const destTeam = teamScenarios.find(s => s.id === destTeamId);
-    
+
     if (!sourceTeam || !destTeam) return;
 
     // Remove from source
     const memberIndex = sourceTeam.members.findIndex(m => m.name === memberName);
     if (memberIndex === -1) return;
-    
+
     const member = sourceTeam.members[memberIndex];
     sourceTeam.members.splice(memberIndex, 1);
-    
+
     // Add to destination (check for duplicates)
     if (!destTeam.members.find(m => m.name === memberName)) {
       destTeam.members.push(member);
     }
-    
+
     // Update localStorage and UI
     localStorage.setItem('teamScenarios', JSON.stringify(teamScenarios));
     renderTeamScenarios();
@@ -1811,37 +2231,37 @@
 
   function calculateTeamCompatibility(team) {
     if (team.members.length === 0) return 0;
-    
+
     // Base score from member compatibility
     const memberScores = team.members.map(m => m.compatibility_score || 70);
     const avgScore = memberScores.reduce((a, b) => a + b, 0) / memberScores.length;
-    
+
     // Boost for diversity in personality types
     const uniqueTypes = new Set(team.members.map(m => m.personality_type)).size;
     const diversityBoost = (uniqueTypes / Math.min(team.members.length, 4)) * 10;
-    
+
     const finalScore = Math.min(100, avgScore + diversityBoost);
     return Math.round(finalScore);
   }
 
   function calculateTeamDynamics(team) {
     if (team.members.length < 2) return 0;
-    
+
     // Personality type frequency analysis
     const typeCounts = {};
     team.members.forEach(m => {
       typeCounts[m.personality_type] = (typeCounts[m.personality_type] || 0) + 1;
     });
-    
+
     const uniqueCount = Object.keys(typeCounts).length;
     const maxRepetition = Math.max(...Object.values(typeCounts));
-    
+
     // Balance score: more diverse is better
     const balanceScore = (uniqueCount / team.members.length) * 100;
-    
+
     // Conflict score: too many of same type = lower dynamics
     const conflictPenalty = (maxRepetition / team.members.length) * 20;
-    
+
     const dynamics = Math.round(balanceScore - conflictPenalty);
     return Math.max(0, dynamics);
   }
@@ -1849,12 +2269,12 @@
   function generateTeamProsAndCons(team) {
     const pros = [];
     const cons = [];
-    
+
     const typeCounts = {};
     team.members.forEach(m => {
       typeCounts[m.personality_type] = (typeCounts[m.personality_type] || 0) + 1;
     });
-    
+
     // Pros analysis
     if (Object.keys(typeCounts).length >= 3) {
       pros.push('Strong personality diversity');
@@ -1868,7 +2288,7 @@
     if (calculateTeamCompatibility(team) >= 70) {
       pros.push('High compatibility scores');
     }
-    
+
     // Cons analysis
     if (Object.keys(typeCounts).length <= 2) {
       cons.push('Limited personality diversity');
@@ -1882,7 +2302,7 @@
     if (calculateTeamCompatibility(team) < 50) {
       cons.push('Low compatibility concerns');
     }
-    
+
     return {
       pros: pros.slice(0, 3),
       cons: cons.slice(0, 2)
@@ -1902,14 +2322,14 @@
       const dynamics = calculateTeamDynamics(scenario);
       const analysis = generateTeamProsAndCons(scenario);
       const color = compat >= 70 ? 'success' : compat >= 50 ? 'warning' : 'danger';
-      
+
       // Team composition details
       const personalities = scenario.members.map(m => m.personality_type);
       const uniqueTypes = new Set(personalities).size;
-      const composition = uniqueTypes > 0 
+      const composition = uniqueTypes > 0
         ? `${uniqueTypes} personality type${uniqueTypes > 1 ? 's' : ''} represented`
         : 'Empty team';
-      
+
       html += `
       <div class="comparison-card ${compat < 50 ? 'warning-low' : compat >= 70 ? 'warning-good' : 'warning-medium'}">
         <h5 class="mb-2">${scenario.team_name}</h5>
@@ -1960,14 +2380,14 @@
     container.innerHTML = html;
   }
 
-  window.addMemberToTeam = function(teamScenarioId) {
+  window.addMemberToTeam = function (teamScenarioId) {
     if (!currentAnalysis) {
       showToast('Analyze a candidate first', 'error');
       return;
     }
     const scenario = teamScenarios.find(s => s.id === teamScenarioId);
     if (!scenario) return;
-    
+
     const newMember = {
       id: Date.now(),
       name: currentAnalysis.candidate_name,
@@ -1983,7 +2403,7 @@
     showToast(`Added ${newMember.name} to ${scenario.team_name}`, 'ok');
   };
 
-  window.deleteTeamScenario = function(scenarioId) {
+  window.deleteTeamScenario = function (scenarioId) {
     teamScenarios = teamScenarios.filter(s => s.id !== scenarioId);
     localStorage.setItem('teamScenarios', JSON.stringify(teamScenarios));
     renderTeamScenarios();
@@ -1992,13 +2412,13 @@
 
   window.moveTeamMember = moveTeamMember;
 
-  window.removeMemberFromTeam = function(scenarioId, memberName) {
+  window.removeMemberFromTeam = function (scenarioId, memberName) {
     const scenario = teamScenarios.find(s => s.id === scenarioId);
     if (!scenario) return;
-    
+
     const memberIndex = scenario.members.findIndex(m => m.name === memberName);
     if (memberIndex === -1) return;
-    
+
     scenario.members.splice(memberIndex, 1);
     localStorage.setItem('teamScenarios', JSON.stringify(teamScenarios));
     renderTeamScenarios();
@@ -2009,7 +2429,7 @@
   // Initialize OCEAN questions on page load
   generateOceanQuestions();
   document.getElementById('addTeamMemberBtn').addEventListener('click', window.addTeamMember);
-  
+
   // Team management event listeners
   const addTeamScenarioBtn = document.getElementById('addTeamScenarioBtn');
   if (addTeamScenarioBtn) {
@@ -2025,10 +2445,10 @@
   const stressHistoryTable = document.getElementById('stressHistoryTable');
   const chartCanvas = document.getElementById('stressChart');
   const chartPlaceholder = document.getElementById('chartPlaceholder');
-  
+
   let stressChart = null;
   const stressAnalysisHistory = [];
-  
+
   function initStressChart() {
     if (stressChart) {
       stressChart.destroy();
@@ -2044,17 +2464,17 @@
       }
     });
   }
-  
+
   function updateStressChart() {
     if (!stressChart || stressAnalysisHistory.length === 0) return;
-    
+
     const labels = stressAnalysisHistory.map((_, i) => `Emp ${i + 1}`);
     const workloads = stressAnalysisHistory.map(d => d.workload_score);
     const risks = stressAnalysisHistory.map(d => {
       const riskMap = { 'NORMAL': 30, 'HIGH': 70, 'CRITICAL': 100 };
       return riskMap[d.risk_level] || 30;
     });
-    
+
     stressChart.data.labels = labels;
     stressChart.data.datasets = [
       {
@@ -2074,11 +2494,11 @@
     ];
     stressChart.update();
   }
-  
+
   function addToStressHistory(data) {
     stressAnalysisHistory.push(data);
     const idx = stressAnalysisHistory.length;
-    
+
     const stressColorMap = {
       'Low': '#28a745',
       'Medium': '#ffc107',
@@ -2089,7 +2509,7 @@
       'HIGH': '#ffc107',
       'CRITICAL': '#dc3545'
     };
-    
+
     const row = document.createElement('tr');
     row.innerHTML = `
       <td><small>#${idx}</small></td>
@@ -2097,64 +2517,64 @@
       <td><span style="color: ${riskColorMap[data.risk_level] || '#000'}; font-weight: bold;">${data.risk_level}</span></td>
       <td><small>${data.workload_score.toFixed(1)}</small></td>
     `;
-    
+
     if (stressHistoryTable.querySelector('tr td[colspan]')) {
       stressHistoryTable.innerHTML = '';
     }
     stressHistoryTable.appendChild(row);
-    
+
     updateStressChart();
   }
-  
+
   function displayStressResults(data) {
     const stressColorMap = {
       'Low': { className: 'stress-pill stress-pill-low' },
       'Medium': { className: 'stress-pill stress-pill-medium' },
       'High': { className: 'stress-pill stress-pill-high' }
     };
-    
+
     const riskColorMap = {
       'NORMAL': '#28a745',
       'HIGH': '#ffc107',
       'CRITICAL': '#dc3545'
     };
-    
+
     const stressStyle = stressColorMap[data.stress_level] || stressColorMap['Low'];
     const riskColor = riskColorMap[data.risk_level] || '#000';
-    
+
     document.getElementById('stressLevelDisplay').innerHTML =
       `<span class="${stressStyle.className}">${data.stress_level}</span>`;
-    
-    document.getElementById('riskLevelDisplay').innerHTML = 
+
+    document.getElementById('riskLevelDisplay').innerHTML =
       `<span style="color: ${riskColor}; font-weight: bold;">${data.risk_level}</span>`;
-    
+
     document.getElementById('workloadScore').textContent = `${data.workload_score.toFixed(1)}/100`;
     document.getElementById('meetingLoadScore').textContent = `${data.meeting_load_score.toFixed(1)}/100`;
     document.getElementById('taskCompletion').textContent = `${data.task_completion_score.toFixed(1)}%`;
-    
+
     // Display insights
     const insightsList = document.getElementById('insightsList');
     insightsList.innerHTML = data.insights.map(i => `<div class="mb-2">• ${i}</div>`).join('');
-    
+
     // Display recommendations
     const recommendationsList = document.getElementById('recommendationsList');
     recommendationsList.innerHTML = data.recommendations.map(r => `<div class="mb-2">• ${r}</div>`).join('');
-    
+
     // Display future risk
     const futureRiskAlert = document.getElementById('futureRiskAlert');
     futureRiskAlert.textContent = data.future_risk;
     futureRiskAlert.style.display = data.risk_level === 'CRITICAL' ? 'block' : 'none';
-    
+
     stressResults.style.display = 'block';
     stressStatus.style.display = 'none';
-    
+
     addToStressHistory(data);
     chartPlaceholder.style.display = 'none';
   }
-  
+
   stressForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    
+
     const payload = {
       tasks_assigned: parseInt(document.getElementById('tasksAssigned').value),
       tasks_completed: parseInt(document.getElementById('tasksCompleted').value),
@@ -2164,29 +2584,29 @@
       meeting_hours: parseFloat(document.getElementById('meetingHours').value),
       weekend_work: parseInt(document.getElementById('weekendWork').value),
     };
-    
+
     stressStatus.style.display = 'block';
     stressStatus.textContent = 'Analyzing…';
     stressStatus.className = 'status ok';
     stressResults.style.display = 'none';
-    
+
     try {
       const response = await fetch('/api/v1/stress/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      
+
       if (!response.ok) {
         throw new Error(`Server error: ${response.status}`);
       }
-      
+
       const data = await response.json();
-      
+
       if (data.status === 'success') {
         displayStressResults({ ...data, input: payload });
         stressStatus.textContent = 'Analysis complete.';
-        
+
         // Show alert if high risk
         if (data.risk_level === 'CRITICAL') {
           setTimeout(() => {
@@ -2202,93 +2622,109 @@
       stressStatus.className = 'status error';
     }
   });
-  
+
   clearStressBtn.addEventListener('click', () => {
     stressForm.reset();
     stressResults.style.display = 'none';
     stressStatus.style.display = 'none';
   });
 
-  if (downloadResumePdfBtn) {
-    downloadResumePdfBtn.addEventListener('click', () => {
-      const resumeData = state.current || (state.history[0] && state.history[0].payload);
-      if (!resumeData) {
-        showToast('Analyze or load a resume first', 'error');
-        return;
-      }
-      downloadReportPdf('resume-analysis-report.pdf', 'Resume Analysis Report', (lines) => {
-        appendResumeReport(lines, resumeData, 'Resume Analysis', state.profile);
-        if (state.workforce) appendWorkforceReport(lines, state.workforce);
-      });
-      showToast('PDF report downloaded', 'ok');
+  function downloadCurrentCandidateReportOnly() {
+    const hasContent = state.current || state.history.length || currentAnalysis || stressAnalysisHistory.length;
+    if (!hasContent) {
+      showToast('No candidate data available to download', 'error');
+      return;
+    }
+    downloadReportPdf('current-candidate-report.pdf', 'Current Candidate Report', (lines) => {
+      buildCurrentCandidateReport(lines);
+    }, {
+      includeExecutivePages: false,
+      includeBehavioralHistory: false,
     });
+    showToast('Current candidate report downloaded', 'ok');
   }
 
-  if (downloadBehavioralPdfBtn) {
-    downloadBehavioralPdfBtn.addEventListener('click', () => {
-      if (!currentAnalysis) {
-        showToast('Run behavioral analysis first', 'error');
-        return;
-      }
-      downloadReportPdf('behavioral-analysis-report.pdf', 'Behavioral Analysis Report', (lines) => {
-        appendBehavioralReport(lines, currentAnalysis);
-      });
-      showToast('PDF report downloaded', 'ok');
+  function downloadAllReportsFileOnly() {
+    const hasAny = state.current || state.history.length || currentAnalysis || stressAnalysisHistory.length || candidateHistory.length;
+    if (!hasAny) {
+      showToast('No reports available to download', 'error');
+      return;
+    }
+    downloadReportPdf('all-reports.pdf', 'Talent Intelligence Reports', (lines) => {
+      buildAllReports(lines);
     });
+    showToast('All reports downloaded', 'ok');
   }
 
-  if (downloadStressPdfBtn) {
-    downloadStressPdfBtn.addEventListener('click', () => {
-      if (!stressAnalysisHistory.length) {
-        showToast('Run stress analysis first', 'error');
-        return;
-      }
-      downloadReportPdf('stress-workload-report.pdf', 'Stress / Workload Report', (lines) => {
-        addTrendChart(lines, 'Stress Trend Graph', stressAnalysisHistory);
-        stressAnalysisHistory.forEach((entry, idx) => {
-          appendStressReport(lines, entry, `Stress / Workload Analysis ${idx + 1}`);
-        });
-      });
-      showToast('PDF report downloaded', 'ok');
+  function downloadResumeReportOnly() {
+    const resumeData = state.current || (state.history[0] && state.history[0].payload);
+    const resumeProfile = state.profile || (resumeData && resumeData.candidate_profile) || null;
+    const hasResume = !!resumeData;
+    if (!hasResume) {
+      showToast('No resume analysis available to download', 'error');
+      return;
+    }
+    downloadReportPdf('resume-analysis-report.pdf', 'Resume Analysis Report', (lines) => {
+      appendResumeReport(lines, resumeData, 'Resume Analysis', resumeProfile);
+    }, {
+      includeExecutivePages: false,
+      includeBehavioralHistory: false,
     });
+    showToast('Resume report downloaded', 'ok');
   }
 
-  if (downloadCurrentPdfBtn) {
-    downloadCurrentPdfBtn.addEventListener('click', () => {
-      const lines = [];
-      addReportHeader(lines, 'Current Candidate Dossier');
-      if (!buildCurrentCandidateReport(lines)) {
-        showToast('Run an analysis first to build a candidate report', 'error');
-        return;
-      }
-      downloadBlob(buildPdfBlob(lines), 'candidate-dossier-report.pdf');
-      showToast('Candidate report downloaded', 'ok');
+  function downloadBehavioralReportOnly() {
+    const hasBehavioral = !!currentAnalysis;
+    if (!hasBehavioral) {
+      showToast('No behavioral analysis available to download', 'error');
+      return;
+    }
+    downloadReportPdf('behavioral-analysis-report.pdf', 'Behavioral Analysis Report', (lines) => {
+      appendBehavioralReport(lines, currentAnalysis, 'Behavioral Analysis');
+    }, {
+      includeExecutivePages: false,
+      includeBehavioralHistory: false,
     });
+    showToast('Behavioral report downloaded', 'ok');
   }
 
-  if (downloadAllHistoryBtn) {
-    downloadAllHistoryBtn.addEventListener('click', () => {
-      const lines = [];
-      addReportHeader(lines, 'Comprehensive Platform History & Analytics');
-      if (!buildAllReports(lines)) {
-        showToast('Run at least one analysis first to build a report', 'error');
-        return;
-      }
-      downloadBlob(buildPdfBlob(lines), 'karmic-comprehensive-report.pdf');
-      showToast('Comprehensive report downloaded', 'ok');
+  function downloadStressReportOnly() {
+    const latestStress = stressAnalysisHistory.length ? stressAnalysisHistory[stressAnalysisHistory.length - 1] : null;
+    const hasStress = !!latestStress;
+    if (!hasStress) {
+      showToast('No stress analysis available to download', 'error');
+      return;
+    }
+    downloadReportPdf('stress-workload-analysis-report.pdf', 'Stress / Workload Analysis Report', (lines) => {
+      appendStressReport(lines, latestStress, 'Stress / Workload Analysis');
+    }, {
+      includeExecutivePages: false,
+      includeBehavioralHistory: false,
     });
+    showToast('Stress/workload report downloaded', 'ok');
+  }
+
+  document.getElementById('menuDownloadCurrentBtn')?.addEventListener('click', downloadCurrentCandidateReportOnly);
+  document.getElementById('menuDownloadAllBtn')?.addEventListener('click', downloadAllReportsFileOnly);
+  document.getElementById('menuDownloadResumeBtn')?.addEventListener('click', downloadResumeReportOnly);
+  document.getElementById('menuDownloadBehavioralBtn')?.addEventListener('click', downloadBehavioralReportOnly);
+  document.getElementById('menuDownloadStressBtn')?.addEventListener('click', downloadStressReportOnly);
+  document.getElementById('downloadResumePdfBtn')?.addEventListener('click', downloadResumeReportOnly);
+  document.getElementById('downloadBehavioralPdfBtn')?.addEventListener('click', downloadBehavioralReportOnly);
+  document.getElementById('downloadStressPdfBtn')?.addEventListener('click', downloadStressReportOnly);
+
+  function setPersonalityProfileVisibility(isVisible) {
+    const pSection = document.getElementById('candidatePersonalitySection');
+    if (!pSection) return;
+    pSection.style.display = isVisible ? 'block' : 'none';
   }
 
   if (toggleProfileBtn) {
     toggleProfileBtn.addEventListener('click', () => {
       const pSection = document.getElementById('candidatePersonalitySection');
-      if (pSection) {
-        if (pSection.style.display === 'none') {
-            pSection.style.display = 'block';
-        } else {
-            pSection.style.display = 'none';
-        }
-      }
+      if (!pSection) return;
+      const shouldShow = pSection.style.display === 'none';
+      setPersonalityProfileVisibility(shouldShow);
     });
   }
 
@@ -2304,7 +2740,7 @@
     resumeTab.style.display = tabName === 'resume' ? '' : 'none';
     behavioralTab.style.display = tabName === 'behavioral' ? '' : 'none';
     stressTab.style.display = tabName === 'stress' ? '' : 'none';
-    
+
     // Initialize chart when stress tab is opened
     if (tabName === 'stress' && !stressChart) {
       setTimeout(() => initStressChart(), 100);
@@ -2404,6 +2840,7 @@
       } else {
         renderBehavioralResult(result);
         behavioralMetrics.style.display = 'block';
+        setPersonalityProfileVisibility(true);
         behavioralStatus.textContent = 'Analysis completed successfully!';
         behavioralStatus.classList.remove('error');
         behavioralStatus.classList.add('ok');
@@ -2444,7 +2881,7 @@
     const teamSize = response.team_size || 0;
     document.getElementById("bCompatScore").textContent = compatScore + '%';
     document.getElementById("bTeamSize").textContent = teamSize > 0 ? teamSize + ' members' : 'New team';
-    
+
     if (teamSize === 0) {
       document.getElementById("bSynergies").innerHTML = '<span class="text-muted">Add team members to analyze</span>';
       document.getElementById("bConflicts").innerHTML = '<span class="text-muted">Add team members to analyze</span>';
@@ -2453,13 +2890,13 @@
       const synergies = teamCompat.synergies || [];
       const conflicts = teamCompat.potential_conflicts || [];
       const teamRecs = teamCompat.recommendations || [];
-      document.getElementById("bSynergies").innerHTML = synergies.length > 0 
+      document.getElementById("bSynergies").innerHTML = synergies.length > 0
         ? synergies.map(s => `<div class="mb-1">• ${s}</div>`).join('')
         : '<span class="text-muted">No synergies detected</span>';
-      document.getElementById("bConflicts").innerHTML = conflicts.length > 0 
+      document.getElementById("bConflicts").innerHTML = conflicts.length > 0
         ? conflicts.map(c => `<div class="mb-1">• ${c}</div>`).join('')
         : '<span class="text-muted">No conflicts detected</span>';
-      document.getElementById("bTeamRec").innerHTML = teamRecs.length > 0 
+      document.getElementById("bTeamRec").innerHTML = teamRecs.length > 0
         ? teamRecs.map(r => `<div class="mb-1">• ${r}</div>`).join('')
         : '<span class="text-muted">Team is well-balanced</span>';
     }
@@ -2467,24 +2904,24 @@
     // Render Summary Tab
     const fitScore = response.behavioral_fit_score || response.final_score || 0;
     document.getElementById("bFitScore").innerHTML = `<span class="badge rounded-pill text-bg-light border fs-5 fw-semibold">${fitScore}</span>`;
-    
-    const overallAssessment = teamSize > 0 
+
+    const overallAssessment = teamSize > 0
       ? (fitScore >= 70 && compatScore >= 70 ? 'Excellent fit'
         : fitScore >= 60 && compatScore >= 60 ? 'Good fit'
           : 'Fair match — review compatibility')
       : (fitScore >= 70 ? 'Strong profile' : fitScore >= 60 ? 'Suitable profile' : 'Needs development');
     document.getElementById("bTeamFit").textContent = overallAssessment;
-    
+
     const riskFlags = [];
     if (fitScore < 50) riskFlags.push('Low behavioral fit score');
     if (teamSize > 0 && compatScore < 50) riskFlags.push('Low team compatibility');
     const teamConflicts = (teamCompat.potential_conflicts || []);
     if (teamConflicts.length > 2) riskFlags.push('Multiple team conflicts detected');
-    
+
     document.getElementById("bRiskFlags").innerHTML = riskFlags.length > 0
       ? riskFlags.map(f => `<div class="mb-1">${f}</div>`).join('')
       : '<span class="text-muted">No major risks identified</span>';
-    
+
     const candidateName = document.getElementById("candidateName").value;
     const jobRole = document.getElementById("jobRole").value;
     const summary = `<strong>${candidateName}</strong> is applying for <strong>${jobRole}</strong> with a behavioral fit score of <strong>${fitScore}/100</strong>.` +
@@ -2503,7 +2940,7 @@
     const personalityProfile = response.personality_profile || {};
     document.getElementById("personalityTypeName").textContent = personalityType;
     document.getElementById("personalityTypeDesc").textContent = personalityProfile.description || "Professional personality profile";
-    
+
     // Show dynamic strengths (prioritize dynamic_strengths over static strengths)
     const strengthsList = personalityProfile.dynamic_strengths || personalityProfile.strengths || [];
     if (strengthsList && Array.isArray(strengthsList)) {
@@ -2511,7 +2948,7 @@
         .map(s => `<div class="mb-2">• ${s}</div>`)
         .join('');
     }
-    
+
     // Display role compatibility scores
     const roleCompatibility = response.role_compatibility || {};
     if (Object.keys(roleCompatibility).length > 0) {
@@ -2525,7 +2962,7 @@
           </div>`;
         })
         .join('');
-      
+
       const roleSection = document.getElementById("personalityStrengths").parentElement;
       let roleDiv = roleSection.querySelector('.role-compatibility-section');
       if (!roleDiv) {
@@ -2536,14 +2973,14 @@
       }
       roleDiv.innerHTML = '<h6 class="mb-3 fw-semibold">Best role fits</h6>' + roleHtml;
     }
-    
+
     // Display AI recommendations
     const recommendationData = response.recommendation_data || {};
     if (recommendationData.best_role) {
       const bestRole = recommendationData.best_role;
       const confidence = recommendationData.confidence || 0;
       const reasoning = recommendationData.reasoning || '';
-      
+
       const recommendationDiv = document.createElement('div');
       recommendationDiv.className = 'callout-muted mt-3 p-3';
       recommendationDiv.innerHTML = `
@@ -2554,7 +2991,7 @@
         </div>
         <p class="mb-0 small text-muted">${reasoning}</p>
       `;
-      
+
       const parentEl = document.getElementById("personalityStrengths").parentElement.parentElement;
       const oldRec = parentEl.querySelector('.ai-recommendation');
       if (oldRec) oldRec.remove();
@@ -2568,26 +3005,7 @@
     renderTeamComparison();
   }
 
-  // Bind dropdown menu proxy clicks
-  const proxyClicks = [
-    { sourceId: 'menuDownloadCurrentBtn', targetId: 'downloadCurrentPdfBtn' },
-    { sourceId: 'menuDownloadAllBtn', targetId: 'downloadAllHistoryBtn' },
-    { sourceId: 'menuDownloadResumeBtn', targetId: 'downloadResumePdfBtn' },
-    { sourceId: 'menuDownloadBehavioralBtn', targetId: 'downloadBehavioralPdfBtn' },
-    { sourceId: 'menuDownloadStressBtn', targetId: 'downloadStressPdfBtn' }
-  ];
-
-  proxyClicks.forEach(mapping => {
-    const sourceBtn = document.getElementById(mapping.sourceId);
-    if (sourceBtn) {
-      sourceBtn.addEventListener('click', () => {
-        const targetBtn = document.getElementById(mapping.targetId);
-        if (targetBtn) {
-          targetBtn.click();
-        }
-      });
-    }
-  });
+  // Proxy clicks removed in favor of unified download handler
 
 })();
 

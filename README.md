@@ -1,539 +1,494 @@
-# Karmic HRMS – AI-Driven Team Allocation System
+# Karmic HRMS Intelligence Platform
 
-## Overview
+AI-powered talent intelligence suite for resume screening, behavioral fit, workforce matching, and stress risk reporting.
 
-**Karmic HRMS** is an AI-driven Human Resource Management System designed to assist HR teams and managers in analyzing employee capabilities, behavioral traits, and project compatibility.
+![Version](https://img.shields.io/badge/version-1.1.0-blue)
+![Python](https://img.shields.io/badge/python-3.10%2B-blue)
+![FastAPI](https://img.shields.io/badge/backend-FastAPI-009688)
+![UI](https://img.shields.io/badge/frontend-Vanilla%20JS%20%2B%20Bootstrap-purple)
+![Status](https://img.shields.io/badge/status-active-success)
+![License](https://img.shields.io/badge/license-MIT-yellow)
 
-The system uses a **multi-agent architecture** to evaluate resumes, behavioral responses, and project requirements in order to determine whether a candidate or employee is a suitable fit for a specific team or project.
+## Table of Contents
 
-The main goal of this system is to support **data-driven team allocation decisions** and reduce risks related to skill mismatch, behavioral conflicts, and workload imbalance.
+- [Project Overview](#project-overview)
+- [Problem Statement](#problem-statement)
+- [Key Features](#key-features)
+- [Tech Stack](#tech-stack)
+- [Quick Start](#quick-start)
+- [System Architecture](#system-architecture)
+- [Project Workflow](#project-workflow)
+- [Folder Structure](#folder-structure)
+- [Installation Guide](#installation-guide)
+- [Environment Variables](#environment-variables)
+- [Usage Guide](#usage-guide)
+- [API Documentation](#api-documentation)
+- [Database Design](#database-design)
+- [Reporting / Exports](#reporting--exports)
+- [Security Features](#security-features)
+- [Performance / Scalability](#performance--scalability)
+- [Deployment](#deployment)
+- [Screenshots](#screenshots)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
+- [License](#license)
+- [Author / Contact](#author--contact)
 
----
+## Project Overview
 
-# System Architecture
+Karmic HRMS is a multi-agent hiring intelligence platform built to help HR teams and engineering managers make faster, evidence-based candidate decisions.
 
-The system follows a **multi-agent AI architecture**, where each agent is responsible for analyzing a different aspect of a candidate or employee.
+It provides:
+- Resume intelligence (skills, intent, leadership, compensation emphasis)
+- Behavioral intelligence (OCEAN scoring, team fit, role fit)
+- Workforce intelligence (job-role prediction, project skill matching, team compatibility)
+- Stress/workload analysis with risk insights and recommendations
+- Professional PDF report generation for current candidate, individual modules, or full consolidated reports
 
+### Business Value
+
+- Reduces manual screening effort through structured candidate analysis
+- Improves hiring consistency with explainable scores and evidence
+- Supports project staffing decisions using skill and compatibility data
+- Surfaces potential workload and burnout risk signals for proactive HR action
+
+## Problem Statement
+
+Traditional hiring and workforce decisions are often fragmented:
+- Resume review is manual and inconsistent
+- Behavioral evaluation is subjective and difficult to compare
+- Team/project allocation decisions are made without structured fit signals
+- Stress and workload risk are often detected too late
+
+This platform solves that by consolidating resume parsing, behavioral profiling, workforce matching, and risk analytics into one operational interface and API suite.
+
+## Key Features
+
+- **Authentication & Access**
+  - User registration/login/logout
+  - JWT-based session token stored in HTTP-only cookie
+  - Protected root dashboard route
+
+- **Resume Analysis**
+  - PDF/DOCX upload support
+  - Resume text extraction and cleanup
+  - Candidate profile extraction (name, email, phone, location, education, certifications, links, experience)
+  - Skill extraction with semantic matching fallback
+  - Intent detection (embedding-based with keyword fallback)
+  - Leadership and compensation emphasis scoring
+  - Robust fallback mock analyzer if model loading fails
+
+- **Workforce Intelligence**
+  - Job role prediction with classifier + fallback strategy
+  - Project skill match scoring and missing skills detection
+  - Team compatibility scoring with dynamic weighting using behavioral signals
+
+- **Behavioral Analysis**
+  - OCEAN personality assessment workflow
+  - Communication sentiment scoring
+  - Role fit recommendations
+  - Team compatibility, synergies, conflicts, and recommendations
+  - Candidate/team scenario management in browser localStorage
+
+- **Stress / Workload Analysis**
+  - Input-based stress analysis endpoint
+  - Stress level, risk level, workload/meeting/task metrics
+  - Actionable insights, recommendations, and future risk statement
+  - History + chart visualization in UI
+
+- **Reporting**
+  - Enterprise-style branded PDF exports
+  - Module-specific downloads:
+    - Current candidate
+    - Resume only
+    - Behavioral only
+    - Stress/workload only
+    - All reports
+
+- **User Experience**
+  - Single-page tabbed dashboard
+  - Light/dark theming
+  - Drag-and-drop resume upload
+  - Interactive charts (Chart.js)
+
+## Tech Stack
+
+### Frontend
+- HTML5
+- CSS3
+- Vanilla JavaScript
+- Bootstrap 5
+- Bootstrap Icons
+- Chart.js
+
+### Backend
+- Python 3.10+
+- FastAPI
+- Uvicorn
+- Pydantic
+
+### Database
+- MongoDB (`users` collection for auth)
+
+### AI / ML / NLP
+- spaCy
+- Sentence Transformers (`all-MiniLM-L6-v2`, local/offline-first loading in embedding backend)
+- NumPy, Pandas
+- Scikit-learn (job role classifier path)
+- Custom fallback/heuristic agents where needed
+
+### Document Processing
+- pdfplumber
+- python-docx
+
+### Security / Utilities
+- bcrypt
+- PyJWT
+- python-multipart
+
+## Quick Start
+
+```bash
+git clone <your-repo-url>
+cd karmic-hrms
+python -m venv .venv
 ```
-Resume + Behavioral Questionnaire
-            │
-            ▼
-      Data Processing Layer
-        (Resume Parser)
-            │
-            ▼
-        AI Agent Layer
- ┌─────────────────────────────┐
- │ Resume Intelligence Agents  │
- │ Behavioral Intelligence     │
- │ Risk Analysis Agents        │
- │ Project Allocation Agents   │
- └─────────────────────────────┘
-            │
-            ▼
-        Aggregator Agent
-            │
-            ▼
-        Decision Engine
-            │
-            ▼
-     Team Fit Recommendation
+
+Windows PowerShell:
+```bash
+.venv\Scripts\Activate.ps1
 ```
 
----
-
-# AI Agents in the System
-
-## Resume Intelligence Agents
-
-These agents analyze information extracted from resumes.
-
-### Skills Agent
-- Detects technical and soft skills from the resume.
-
-### Experience Agent
-- Extracts years of experience.
-- Identifies companies and roles worked in.
-
-### Job Role Detection Agent
-- Predicts the most suitable job role based on detected skills.
-
----
-
-## Behavioral Intelligence Agents
-
-These agents analyze responses to behavioral and situational questions.
-
-### Behavioral Intelligence Agent
-- Detects positivity or negativity in responses.
-- Identifies collaboration mindset.
-- Detects bias or toxic behavior.
-
-### Leadership Agent
-- Identifies leadership signals such as mentoring, leading teams, or managing projects.
-
-### Intent Agent
-- Determines the candidate’s career orientation and work environment preference.
-
----
-
-## Risk Analysis Agents
-
-### Compensation Agent
-- Detects whether the candidate strongly emphasizes salary or benefits.
-
-### Workload / Stress Risk Agent
-- Predicts possible stress or workload issues based on behavior and work patterns.
-
----
-
-## Project Allocation Agents
-
-### Project Skill Match Agent
-- Compares candidate skills with project requirements.
-
-### Team Compatibility Agent
-- Evaluates whether the candidate fits well within the team environment.
-
----
-
-# Project Structure
-
+macOS/Linux:
+```bash
+source .venv/bin/activate
 ```
-karmic-hrms
-│
-├── resume_agent
-│   ├── models
+
+Install dependencies:
+```bash
+pip install -r resume_agent/requirements.txt
+python -m spacy download en_core_web_sm
+```
+
+Run server:
+```bash
+python -m uvicorn resume_agent.main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+Open:
+- App: `http://127.0.0.1:8000`
+- Swagger: `http://127.0.0.1:8000/docs`
+- Health: `http://127.0.0.1:8000/health`
+
+## System Architecture
+
+```mermaid
+flowchart LR
+    U[User Browser UI] --> A[FastAPI App]
+    A --> R1[/api/v1/resume/*]
+    A --> R2[/api/v1/behavioral/*]
+    A --> R3[/api/v1/workforce/*]
+    A --> R4[/api/v1/stress/*]
+    A --> AU[/auth/*]
+
+    R1 --> S1[Resume Aggregator\nskills + intent + leadership + compensation]
+    R2 --> S2[Behavioral Agent\nOCEAN + role fit + team fit]
+    R3 --> S3[Workforce Agents\nrole detection + skill match + team compatibility]
+    R4 --> S4[Stress Agent\nrisk analysis + recommendations]
+
+    AU --> DB[(MongoDB users)]
+    U --> PDF[Client-side PDF Builder in app.js]
+```
+
+## Project Workflow
+
+1. User authenticates via `/auth/login`.
+2. Dashboard loads and user uploads resume (PDF/DOCX).
+3. Backend parses document and computes resume intelligence.
+4. UI displays profile, scores, evidence, and history.
+5. User optionally runs workforce intelligence using project/team inputs.
+6. User runs behavioral analysis (OCEAN + team context).
+7. User runs stress/workload analysis.
+8. UI can export professional PDF reports by module or consolidated report.
+
+## Folder Structure
+
+```text
+karmic-hrms/
+├── LICENSE
+├── README.md
+├── resume_agent/
+│   ├── __init__.py
+│   ├── main.py
+│   ├── requirements.txt
+│   ├── models/
 │   │   ├── __init__.py
 │   │   └── schema.py
-│   │
-│   ├── routers
-│   │   └── resume.py
-│   │
-│   ├── services
-│   │   ├── skills.py
-│   │   ├── intent.py
-│   │   ├── leadership.py
+│   ├── routers/
+│   │   ├── __init__.py
+│   │   ├── auth.py
+│   │   ├── behavioral.py
+│   │   ├── resume.py
+│   │   ├── stress.py
+│   │   └── workforce.py
+│   ├── services/
+│   │   ├── __init__.py
+│   │   ├── aggregator.py
+│   │   ├── behavioral_intelligence.py
 │   │   ├── compensation.py
+│   │   ├── embeddings.py
+│   │   ├── intent.py
+│   │   ├── job_role_detection.py
+│   │   ├── leadership.py
 │   │   ├── parser.py
-│   │   └── aggregator.py
-│   │
-│   ├── ui
-│   │   ├── index.html
+│   │   ├── project_skill_match.py
+│   │   ├── recommendation.py
+│   │   ├── skills.py
+│   │   ├── stress_agent.py
+│   │   └── team_compatibility.py
+│   ├── ui/
+│   │   ├── app.css
 │   │   ├── app.js
-│   │   └── app.css
-│   │
-│   └── utils
+│   │   ├── index.html
+│   │   ├── login.html
+│   │   └── logo.png
+│   └── utils/
+│       ├── auth.py
+│       ├── db.py
 │       └── logger.py
-│
-|
-├── LICENSE
-└── README.md
 ```
-
----
-
-# Technologies Used
-
-- Python
-- FastAPI
-- Natural Language Processing (NLP)
-- Regex-based text analysis
-- HTML / CSS / JavaScript
-- Git & GitHub
-
----
-
-# Getting Started
-
-## Prerequisites
-
-- **Python 3.9+** (Recommended: 3.10 or 3.11)
-- **pip** (Python package manager)
-- **Git** (for cloning the repository)
-
----
 
 ## Installation Guide
 
-### Step 1: Clone the Repository
+### Prerequisites
+
+- Python 3.10+
+- MongoDB running locally (`mongodb://localhost:27017`)
+- pip
+
+### Clone Repository
 
 ```bash
-git clone https://github.com/Aditya-135/karmic-hrms.git
+git clone <your-repo-url>
 cd karmic-hrms
 ```
 
-### Step 2: Create a Virtual Environment (Recommended)
-
-**On Windows (PowerShell):**
-```powershell
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-```
-
-**On macOS/Linux:**
-```bash
-python3 -m venv venv
-source venv/bin/activate
-```
-
-### Step 3: Install Dependencies
+### Backend Setup
 
 ```bash
+python -m venv .venv
+# activate env
 pip install -r resume_agent/requirements.txt
-```
-
-This installs all required packages including:
-- **FastAPI** - Modern web framework
-- **Uvicorn** - ASGI server
-- **spaCy** - NLP processing
-- **Sentence Transformers** - Semantic embeddings
-- **PDFPlumber** - PDF text extraction
-- **python-docx** - DOCX file handling
-- **Pydantic** - Data validation
-
-### Step 4: Download spaCy Language Model
-
-The system requires the English language model for spaCy:
-
-```bash
 python -m spacy download en_core_web_sm
 ```
 
----
+### Database Setup
 
-## Running the Application
+Create/start local MongoDB and ensure default URI is accessible:
+`mongodb://localhost:27017`
 
-### Start the Server
+Default DB/collection in code:
+- DB: `hrms_karmic`
+- Collection: `users`
 
-From the project root directory, run:
+### Run Development Server
 
 ```bash
-uvicorn resume_agent.main:app --reload
+python -m uvicorn resume_agent.main:app --reload
 ```
 
-You should see output similar to:
-```
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     Application startup complete
-```
+### Production Run
 
-### Access the Web Interface
-
-Open your browser and navigate to:
-```
-http://localhost:8000
+```bash
+python -m uvicorn resume_agent.main:app --host 0.0.0.0 --port 8000
 ```
 
-You'll see the Karmic HRMS web interface where you can upload resumes for analysis.
+## Environment Variables
 
----
+This codebase currently uses minimal environment configuration.
 
-## API Endpoints
+```env
+# Optional: comma-separated allowed CORS origins
+CORS_ORIGINS=*
+```
 
-The system provides multiple REST API endpoints for programmatic access:
+> Note: Mongo URI and JWT secret are currently hardcoded in `resume_agent/utils/db.py` and `resume_agent/utils/auth.py`. For production, move them to secure environment variables.
 
-### Health Check
-- **GET** `/health` - Check if the server is running
-  - Response: `{"status": "ok"}`
+## Usage Guide
 
-### Resume Analysis
-- **POST** `/api/v1/resume/analyze` - Analyze a resume file (PDF or DOCX)
-  - **Required:** multipart form with `file` parameter
-  - **Response:** Detailed skills, intent, leadership, and compensation analysis
+1. Register/Login at `/login`.
+2. Upload a resume in **Resume Analysis** tab.
+3. Review extracted profile, scores, skills, and evidence.
+4. Run **Workforce Intelligence** with project/team context.
+5. Switch to **Behavioral Analysis**, complete OCEAN form, run analysis.
+6. Switch to **Stress/Workload Analyses**, submit workload metrics.
+7. Download specific or consolidated PDF reports from the header menu.
 
-### Behavioral Intelligence
-- **GET** `/api/v1/behavioral/personality-questions` - Get OCEAN personality questions
-  - **Response:** List of behavioral assessment questions
+## API Documentation
 
-- **POST** `/api/v1/behavioral/analyze` - Analyze behavioral responses
-  - **Request Body:**
-    ```json
-    {
-      "candidate_name": "John Doe",
-      "target_role": "Senior Engineer",
-      "ocean_scores": {
-        "openness": 0.75,
-        "conscientiousness": 0.85,
-        "extraversion": 0.60,
-        "agreeableness": 0.70,
-        "neuroticism": 0.40
-      }
-    }
-    ```
-  - **Response:** Personality traits and team fit analysis
+Interactive docs:
+- Swagger UI: `/docs`
+- OpenAPI JSON: `/openapi.json`
 
-### Stress & Workload Analysis
-- **POST** `/api/v1/stress/analyze` - Analyze employee stress levels
-  - **Request Body:**
-    ```json
-    {
-      "tasks_assigned": 12,
-      "tasks_completed": 8,
-      "overdue_tasks": 3,
-      "working_hours_per_day": 10,
-      "meetings_per_day": 6,
-      "meeting_hours": 5,
-      "weekend_work": 1
-    }
-    ```
-  - **Response:** Stress level, risk assessment, and recommendations
+### Core Endpoints
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| GET | `/health` | Service health/version |
+| GET | `/` | Protected dashboard page |
+| GET | `/login` | Login/register page |
+| POST | `/web/analyze` | Web resume analyze flow (HTML response) |
+
+### Auth
+
+| Method | Endpoint |
+|---|---|
+| POST | `/auth/register` |
+| POST | `/auth/login` |
+| POST | `/auth/logout` |
+
+### Resume Intelligence
+
+| Method | Endpoint |
+|---|---|
+| POST | `/api/v1/resume/analyze` |
+| POST | `/api/v1/resume/extract-name` |
+| POST | `/api/v1/resume/extract-profile` |
 
 ### Workforce Intelligence
-- **POST** `/api/v1/workforce/intelligence` - Comprehensive workforce allocation analysis
-  - **Request Body:**
-    ```json
-    {
-      "employee_name": "John Doe",
-      "project_name": "Project Alpha",
-      "employee_skills": ["Python", "FastAPI", "Angular"],
-      "project_skills_required": ["Python", "Docker", "Kubernetes"],
-      "primary_intent": "Career Growth",
-      "leadership_score": 0.75,
-      "compensation_emphasis": 0.40,
-      "team": {
-        "name": "Backend Team",
-        "skills": ["Python", "Docker"],
-        "values": ["Collaboration", "Innovation"],
-        "leadership_needed": true
-      }
-    }
-    ```
-  - **Response:** Role prediction, skill match score, and team compatibility
 
----
+| Method | Endpoint |
+|---|---|
+| POST | `/api/v1/workforce/intelligence` |
 
-## Testing the API
+### Behavioral Intelligence
 
-### Using cURL (Command Line)
+| Method | Endpoint |
+|---|---|
+| POST | `/api/v1/behavioral/analyze` |
+| POST | `/api/v1/behavioral/health` |
+| POST | `/api/v1/behavioral/team-compatibility` |
+| GET | `/api/v1/behavioral/candidate-history` |
+| GET | `/api/v1/behavioral/personality-questions` |
 
-Test the health endpoint:
+### Stress / Workload
+
+| Method | Endpoint |
+|---|---|
+| POST | `/api/v1/stress/analyze` |
+
+## Database Design
+
+### MongoDB (persistent backend storage)
+
+#### `users` collection
+
+| Field | Type | Description |
+|---|---|---|
+| `name` | string | User full name |
+| `email` | string | Unique login email |
+| `password` | string | bcrypt-hashed password |
+
+### Client-side persistence (browser localStorage)
+
+- Recent resume analyses
+- Candidate behavioral history
+- Team scenarios
+- Stress analysis history
+- UI theme state
+
+## Reporting / Exports
+
+- PDF generation is implemented in `resume_agent/ui/app.js` (client-side).
+- Supports:
+  - Current candidate report
+  - Resume-only report
+  - Behavioral-only report
+  - Stress/workload-only report
+  - All reports bundle
+- Reports include dynamic values from live analysis state and module histories.
+
+## Security Features
+
+- Password hashing via `bcrypt`.
+- JWT token generation/validation via `PyJWT`.
+- Session token stored in HTTP-only cookie (`auth_token`).
+- Protected root route redirects unauthenticated users to `/login`.
+- Input validation using Pydantic and route-level checks.
+- Global exception handler for safe JSON error fallback.
+
+## Performance / Scalability
+
+- Lifespan warm-up for heavy analyzers to reduce first-request latency.
+- Lazy loading and `lru_cache` for agents/models.
+- Fallback model strategies (semantic backend -> token overlap backend).
+- Modular service architecture for independent scaling of analysis domains.
+
+## Deployment
+
+The app is ASGI-compatible and can be deployed to:
+- Render
+- Railway
+- Fly.io
+- VPS (systemd + Nginx reverse proxy)
+- Docker (with a custom Dockerfile)
+
+### Minimal production command
+
 ```bash
-curl http://localhost:8000/health
+uvicorn resume_agent.main:app --host 0.0.0.0 --port 8000
 ```
 
-Get behavioral questions:
+### Deployment notes
+
+- Set `CORS_ORIGINS` for your frontend domains.
+- Replace hardcoded JWT secret and Mongo URI with env vars.
+- Use managed MongoDB for production.
+- Serve behind HTTPS reverse proxy.
+
+## Screenshots
+
+> Add screenshots to `docs/` and update paths below.
+
+![Login](docs/login.png)
+![Resume Analysis](docs/resume-analysis.png)
+![Behavioral Analysis](docs/behavioral-analysis.png)
+![Stress Analysis](docs/stress-analysis.png)
+![PDF Report](docs/pdf-report.png)
+
+## Roadmap
+
+- Move security-sensitive constants to environment variables.
+- Add role-based access control (RBAC).
+- Add persistent storage for analysis history (server-side).
+- Add CI pipeline and test suite coverage badges.
+- Add Docker + compose setup.
+- Add multi-tenant organization support.
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Commit changes with clear messages
+4. Push your branch
+5. Open a Pull Request
+
 ```bash
-curl http://localhost:8000/api/v1/behavioral/personality-questions
+git checkout -b feature/your-feature
+git commit -m "feat: add your feature"
+git push origin feature/your-feature
 ```
 
-Analyze stress levels:
-```bash
-curl -X POST http://localhost:8000/api/v1/stress/analyze \
-  -H "Content-Type: application/json" \
-  -d '{"tasks_assigned":12,"tasks_completed":8,"overdue_tasks":3,"working_hours_per_day":10,"meetings_per_day":6,"meeting_hours":5,"weekend_work":1}'
-```
+## License
 
-### Using Python
+This project is licensed under the MIT License. See `LICENSE`.
 
-```python
-import requests
+## Author / Contact
 
-# Analyze stress
-response = requests.post(
-    "http://localhost:8000/api/v1/stress/analyze",
-    json={
-        "tasks_assigned": 12,
-        "tasks_completed": 8,
-        "overdue_tasks": 3,
-        "working_hours_per_day": 10,
-        "meetings_per_day": 6,
-        "meeting_hours": 5,
-        "weekend_work": 1
-    }
-)
+Project maintained by the **Karmic HRMS Team**.
 
-print(response.json())
-```
-
-### Using PowerShell
-
-```powershell
-$body = @{
-    tasks_assigned = 12
-    tasks_completed = 8
-    overdue_tasks = 3
-    working_hours_per_day = 10
-    meetings_per_day = 6
-    meeting_hours = 5
-    weekend_work = 1
-} | ConvertTo-Json
-
-Invoke-WebRequest -Uri http://localhost:8000/api/v1/stress/analyze `
-  -Method POST `
-  -ContentType 'application/json' `
-  -Body $body | Select-Object -ExpandProperty Content
-```
-
----
-
-## API Documentation (Interactive)
-
-Once the server is running, access the auto-generated documentation at:
-
-- **Swagger UI:** `http://localhost:8000/docs`
-- **ReDoc:** `http://localhost:8000/redoc`
-
-These interactive interfaces allow you to test all endpoints directly from your browser.
-
----
-
-## Project Structure
-
-```
-karmic-hrms/
-├── resume_agent/
-│   ├── main.py                 # FastAPI application and route setup
-│   ├── requirements.txt         # Python dependencies
-│   │
-│   ├── models/
-│   │   └── schema.py           # Pydantic data models
-│   │
-│   ├── routers/
-│   │   ├── resume.py           # Resume analysis endpoints
-│   │   ├── behavioral.py       # Behavioral analysis endpoints
-│   │   ├── stress.py           # Stress analysis endpoints
-│   │   └── workforce.py        # Workforce intelligence endpoints
-│   │
-│   ├── services/
-│   │   ├── parser.py           # Resume text extraction
-│   │   ├── skills.py           # Skill detection agent
-│   │   ├── intent.py           # Career intent detection
-│   │   ├── leadership.py       # Leadership signal detection
-│   │   ├── compensation.py     # Compensation emphasis analysis
-│   │   ├── behavioral_intelligence.py  # OCEAN personality model
-│   │   ├── stress_agent.py     # Workload stress prediction
-│   │   ├── job_role_detection.py       # Job role prediction
-│   │   ├── team_compatibility.py       # Team fit assessment
-│   │   ├── project_skill_match.py      # Project skill matching
-│   │   ├── recommendation.py   # Final recommendation engine
-│   │   └── aggregator.py       # Unified analysis orchestration
-│   │
-│   ├── ui/
-│   │   ├── index.html          # Web interface
-│   │   ├── app.js              # Frontend logic
-│   │   └── app.css             # Styling
-│   │
-│   └── utils/
-│       └── logger.py           # Logging configuration
-│
-├── resumes/                    # Sample resume datasets
-├── LICENSE                     # MIT License
-└── README.md                   # This file
-```
-
----
-
-## Troubleshooting
-
-### Issue: `ModuleNotFoundError: No module named 'spacy'`
-**Solution:** Install dependencies with `pip install -r resume_agent/requirements.txt`
-
-### Issue: `OSError: [E050] Can't find model 'en_core_web_sm'`
-**Solution:** Download the spaCy model with:
-```bash
-python -m spacy download en_core_web_sm
-```
-
-### Issue: Port 8000 already in use
-**Solution:** Specify a different port:
-```bash
-uvicorn resume_agent.main:app --port 8001 --reload
-```
-
-### Issue: Import errors or circular dependencies
-**Solution:** Ensure you're running from the project root directory and the virtual environment is activated.
-
-### Issue: Slow first request response
-**Solution:** The system initializes several ML models on first use. Subsequent requests will be faster.
-
----
-
-## Development Tips
-
-### Run without auto-reload (Production)
-```bash
-uvicorn resume_agent.main:app
-```
-
-### Run with custom settings
-```bash
-uvicorn resume_agent.main:app --host 0.0.0.0 --port 8000 --workers 4
-```
-
-### Enable debug logging
-Add to your environment before running:
-```bash
-# Windows PowerShell
-$env:LOG_LEVEL="DEBUG"
-
-# macOS/Linux
-export LOG_LEVEL=DEBUG
-```
-
----
-
-## Common Use Cases
-
-### 1. Resume Upload and Analysis
-- Visit `http://localhost:8000`
-- Upload a PDF or DOCX resume
-- View comprehensive analysis results
-
-### 2. Behavioral Assessment
-1. Get personality questions from `/api/v1/behavioral/personality-questions`
-2. Collect candidate responses
-3. POST scores to `/api/v1/behavioral/analyze`
-4. Receive personality profile and team fit metrics
-
-### 3. Employee Stress Monitoring
-- POST employee workload metrics to `/api/v1/stress/analyze`
-- Receive stress level, risk assessment, and recommendations
-- Use for proactive workload management
-
-### 4. Team Allocation Decision
-- Gather employee skills, behavioral scores, and project requirements
-- POST to `/api/v1/workforce/intelligence`
-- Get data-driven allocation recommendation
-
----
-
-## Additional Resources
-
-- **FastAPI Documentation:** https://fastapi.tiangolo.com/
-- **Uvicorn Documentation:** https://www.uvicorn.org/
-- **spaCy Documentation:** https://spacy.io/
-- **Pydantic Documentation:** https://docs.pydantic.dev/
-
----
-
----
-
-# Example Output
-
-The system generates structured insights such as:
-
-- Detected technical and soft skills
-- Leadership indicators
-- Behavioral insights
-- Team compatibility score
-- Project skill match score
-
-Finally, the system provides a **recommendation for project assignment**.
-
----
-
-# License
-
-This project is licensed under the **MIT License**.
-
----
-
-# Contributors
-
-## Contributors
-
-- **Aditya Patil** 
-- **Saloni Bhimellu** 
-- **Omkar More** 
-- **Sai Dhumal** 
+Contributors listed in repository history and prior project credits:
+- Aditya Patil
+- Saloni Bhimellu
+- Omkar More
+- Sai Dhumal
