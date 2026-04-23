@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Body
 
 from resume_agent.models.schema import (
     BehavioralAnalysisRequest,
@@ -179,9 +179,9 @@ async def behavioral_health() -> dict:
     responses={400: {"model": ErrorResponse}, 500: {"model": ErrorResponse}},
 )
 async def calculate_team_compatibility(
-    candidate_ocean: dict,
-    team_oceans: list[dict],
-    candidate_personality: str = "The Balanced Professional"
+    candidate_ocean: dict = Body(...),
+    team_oceans: list[dict] = Body(...),
+    candidate_personality: str = Body("The Balanced Professional")
 ) -> dict:
     """
     Calculate dynamic team compatibility when adding candidates to teams.

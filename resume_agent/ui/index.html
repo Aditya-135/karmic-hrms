@@ -1,605 +1,1120 @@
 <!doctype html>
 <html lang="en" data-bs-theme="light">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Resume Intelligence Agent</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous">
-  <link href="/ui/app.css" rel="stylesheet" />
-</head>
-<body>
-  <main class="container-fluid app-shell py-3 py-lg-4">
-    <section class="hero-card rounded-4 p-3 p-lg-4 mb-3">
-      <div class="d-flex flex-wrap gap-3 justify-content-between align-items-start">
-        <div>
-          <h1 class="display-title mb-2">Resume Intelligence Agent</h1>
-          <p class="text-muted mb-0">Interactive HRMS analysis for skills, intent, leadership signals, and compensation emphasis.</p>
-        </div>
-        <div class="d-flex gap-2 flex-wrap">
-          <a class="btn btn-light btn-sm" href="/docs" target="_blank" rel="noopener">API Docs</a>
-          <a class="btn btn-light btn-sm" href="/health" target="_blank" rel="noopener">Health</a>
-          <button id="themeToggle" type="button" class="btn btn-outline-light btn-sm">Toggle Theme</button>
-        </div>
-      </div>
-    </section>
-
-    <div class="mb-3">
-      <ul class="nav nav-tabs gap-2" id="mainTabs">
-        <li><button type="button" class="main-tab-btn active" data-main-tab="resume">Resume Analysis</button></li>
-        <li><button type="button" class="main-tab-btn" data-main-tab="behavioral">Behavioral Analysis</button></li>
-        <li><button type="button" class="main-tab-btn" data-main-tab="stress">Stress / Workload</button></li>
-      </ul>
-    </div>
-
-    <div class="row g-3" id="resume-tab">
-      <div class="col-12 col-xl-7">
-        <section class="panel p-3 p-lg-4">
-          <form id="uploadForm" action="/web/analyze" method="post" enctype="multipart/form-data">
-            <div id="dropzone" class="dropzone rounded-4 p-3 mb-3">
-              <div class="fw-semibold">Drop resume here or choose from your device</div>
-              <div class="small text-muted">Accepted: PDF, DOCX. Max 10 MB.</div>
-              <input id="resumeFile" type="file" name="file" class="form-control mt-3" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required>
-              <div id="fileMeta" class="small text-muted mt-2">No file selected</div>
-            </div>
-
-            <div class="d-flex flex-wrap gap-2">
-              <button id="submitBtn" type="submit" class="btn btn-primary px-4">Analyze Resume</button>
-              <button id="clearBtn" type="button" class="btn btn-outline-secondary">Clear</button>
-            </div>
-          </form>
-
-          <div id="status" class="status mt-3 __STATUS_CLASS__">__STATUS_TEXT__</div>
-
-          <div id="steps" class="steps mt-3">
-            <span class="step" data-step="0">Upload</span>
-            <span class="step" data-step="1">Parse</span>
-            <span class="step" data-step="2">Skills</span>
-            <span class="step" data-step="3">Intent</span>
-            <span class="step" data-step="4">Signals</span>
-          </div>
-
-          <ul class="nav nav-pills gap-2 mt-3" id="tabs">
-            <li><button type="button" class="tab-btn active" data-tab="overview">Overview</button></li>
-            <li><button type="button" class="tab-btn" data-tab="skills">Skills</button></li>
-            <li><button type="button" class="tab-btn" data-tab="evidence">Evidence</button></li>
-            <li><button type="button" class="tab-btn" data-tab="workforce">Workforce Intelligence</button></li>
-          </ul>
-
-          <section id="tab-overview" class="tab-panel active mt-3">
-            <div class="row g-2">
-              <div class="col-6"><div class="metric-card"><div class="label">Primary Intent</div><div id="mPrimary" class="value">-</div></div></div>
-              <div class="col-6"><div class="metric-card"><div class="label">Secondary Intent</div><div id="mSecondary" class="value">-</div></div></div>
-              <div class="col-6"><div class="metric-card"><div class="label">Leadership Score</div><div id="mLead" class="value">0.00</div></div></div>
-              <div class="col-6"><div class="metric-card"><div class="label">Compensation Index</div><div id="mComp" class="value">0.00</div></div></div>
-            </div>
-
-            <div class="mt-3">
-              <div class="bar-label">Skills Confidence <span id="tSkills">0%</span></div>
-              <div class="bar-wrap"><span id="bSkills" class="bar-fill"></span></div>
-            </div>
-            <div class="mt-2">
-              <div class="bar-label">Intent Confidence <span id="tIntent">0%</span></div>
-              <div class="bar-wrap"><span id="bIntent" class="bar-fill"></span></div>
-            </div>
-            <div class="mt-2">
-              <div class="bar-label">Leadership Confidence <span id="tLead">0%</span></div>
-              <div class="bar-wrap"><span id="bLead" class="bar-fill"></span></div>
-            </div>
-            <div class="mt-2">
-              <div class="bar-label">Compensation Confidence <span id="tComp">0%</span></div>
-              <div class="bar-wrap"><span id="bComp" class="bar-fill"></span></div>
-            </div>
-          </section>
-
-          <section id="tab-skills" class="tab-panel mt-3">
-            <input id="skillSearch" class="form-control mb-3" type="text" placeholder="Filter skills">
-            <div class="small text-muted mb-1">Technical Skills</div>
-            <div id="skillsTech" class="chips mb-3"><span class="empty">No data</span></div>
-            <div class="small text-muted mb-1">Soft Skills</div>
-            <div id="skillsSoft" class="chips"><span class="empty">No data</span></div>
-          </section>
-
-          <section id="tab-evidence" class="tab-panel mt-3">
-            <details open class="evidence-box mb-2">
-              <summary>Leadership Evidence (<span id="cLead">0</span>)</summary>
-              <ul id="eLead" class="mb-0 mt-2"><li class="empty">No evidence available</li></ul>
-            </details>
-            <details class="evidence-box">
-              <summary>Compensation Evidence (<span id="cComp">0</span>)</summary>
-              <ul id="eComp" class="mb-0 mt-2"><li class="empty">No evidence available</li></ul>
-            </details>
-          </section>
-
-          <section id="tab-workforce" class="tab-panel mt-3">
-            <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between">
-              <div class="small text-muted">
-                Uses detected resume skills + your project/team inputs to run the 3-agent workforce pipeline.
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Karmic Intelligence Platform</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <!-- Animate.css for modern UI effects -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      crossorigin="anonymous"
+    />
+    <link href="/ui/app.css" rel="stylesheet" />
+  </head>
+  <body>
+    <main class="container-fluid app-shell py-3 py-lg-4">
+      <section class="hero-card rounded-4 p-3 p-lg-4 mb-3 animate__animated animate__fadeInDown border border-success-subtle shadow-sm bg-gradient" style="position: relative; z-index: 1050;">
+        <div class="d-flex flex-column">
+          <div class="d-flex flex-column align-items-center text-center gap-2">
+            <div class="d-flex flex-column flex-sm-row align-items-center gap-2 mb-1">
+              <div class="bg-primary bg-opacity-10 text-primary rounded-4 p-2 px-3 d-flex align-items-center justify-content-center border border-primary border-opacity-25 shadow-sm">
+                <i class="bi bi-robot fs-3"></i>
               </div>
-              <button id="runWorkforceBtn" type="button" class="btn btn-outline-secondary btn-sm">
-                Run Workforce Intelligence
+              <h1 class="display-title mb-0" style="font-size: 2.2rem; letter-spacing: -0.02em;">Karmic Intelligence Platform</h1>
+            </div>
+            <p class="text-muted mb-0" style="max-width: 650px; font-size: 1.1rem;">
+              Interactive HRMS analysis for behavior, intent, skills, and workload assessment.
+            </p>
+          </div>
+          <div class="d-flex flex-column flex-sm-row gap-2 justify-content-end w-100 mt-4 align-items-stretch align-items-sm-center">
+            <div class="dropdown shadow-sm pe-sm-2">
+              <button class="btn btn-primary dropdown-toggle text-nowrap fw-medium" type="button" id="mainDownloadMenu" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-download me-1"></i> Download Report
               </button>
+              <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2" aria-labelledby="mainDownloadMenu" style="z-index: 1050;">
+                <li>
+                  <button class="dropdown-item py-2 fw-medium text-dark dropdown-hover" type="button" id="menuDownloadCurrentBtn">
+                    <i class="bi bi-person-lines-fill me-2 text-primary"></i>Download Current Candidate Report
+                  </button>
+                </li>
+                <li>
+                  <button class="dropdown-item py-2 fw-medium text-dark dropdown-hover" type="button" id="menuDownloadAllBtn">
+                    <i class="bi bi-files me-2 text-primary"></i>Download All Reports
+                  </button>
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                  <button class="dropdown-item py-2 fw-medium text-dark dropdown-hover" type="button" id="menuDownloadResumeBtn">
+                    <i class="bi bi-file-text me-2 text-success"></i>Download Resume Only
+                  </button>
+                </li>
+                <li>
+                  <button class="dropdown-item py-2 fw-medium text-dark dropdown-hover" type="button" id="menuDownloadBehavioralBtn">
+                    <i class="bi bi-people me-2 text-info"></i>Download Behavioral Only
+                  </button>
+                </li>
+                <li>
+                  <button class="dropdown-item py-2 fw-medium text-dark dropdown-hover" type="button" id="menuDownloadStressBtn">
+                    <i class="bi bi-activity me-2 text-danger"></i>Download Stress Report
+                  </button>
+                </li>
+              </ul>
             </div>
+            <div class="vr mx-1 opacity-25 d-none d-sm-block"></div>
+            <a class="btn btn-outline-secondary text-nowrap" href="/docs" target="_blank" rel="noopener"><i class="bi bi-code-slash me-1"></i> API Docs</a>
+            <a class="btn btn-outline-secondary text-nowrap" href="/health" target="_blank" rel="noopener"><i class="bi bi-heart-pulse me-1"></i> Health</a>
+            <button id="themeToggle" type="button" class="btn btn-outline-secondary text-nowrap"><i class="bi bi-moon-stars me-1"></i> Theme Options</button>
+            <button id="logoutBtn" type="button" class="btn btn-outline-danger text-nowrap"><i class="bi bi-box-arrow-right me-1"></i> Logout</button>
+          </div>
+        </div>
+      </section>
 
-            <div class="row g-2 mt-2">
-              <div class="col-12">
-                <label class="form-label small text-muted mb-1">Employee Skills (auto-filled from resume)</label>
-                <textarea id="wfEmployeeSkills" class="form-control wf-textarea" rows="2" placeholder="Analyze a resume first to auto-fill skills."></textarea>
-              </div>
-              <div class="col-12 col-md-6">
-                <label class="form-label small text-muted mb-1">Project Name</label>
-                <input id="wfProjectName" class="form-control" type="text" placeholder="e.g., Fraud Detection System">
-              </div>
-              <div class="col-12 col-md-6">
-                <label class="form-label small text-muted mb-1">Team Name</label>
-                <input id="wfTeamName" class="form-control" type="text" placeholder="e.g., Risk ML">
-              </div>
-              <div class="col-12 col-md-6">
-                <label class="form-label small text-muted mb-1">Project Skills Required (comma-separated)</label>
-                <textarea id="wfProjectSkills" class="form-control wf-textarea" rows="2" placeholder="Python, Machine Learning, SQL"></textarea>
-              </div>
-              <div class="col-12 col-md-6">
-                <label class="form-label small text-muted mb-1">Team Skills (comma-separated)</label>
-                <textarea id="wfTeamSkills" class="form-control wf-textarea" rows="2" placeholder="Python, SQL, MLOps, Communication"></textarea>
-              </div>
-              <div class="col-12">
-                <label class="form-label small text-muted mb-1">Team Values (comma-separated)</label>
-                <input id="wfTeamValues" class="form-control" type="text" placeholder="collaboration, ownership">
-              </div>
-              <div class="col-12">
-                <div class="form-check mt-1">
-                  <input id="wfLeadershipNeeded" class="form-check-input" type="checkbox">
-                  <label class="form-check-label small text-muted" for="wfLeadershipNeeded">Leadership needed for this team</label>
-                </div>
-              </div>
-            </div>
-
-            <div class="small text-muted mt-3">Behavioral signals (auto-filled from resume analysis)</div>
-            <div class="row g-2 mt-1">
-              <div class="col-12 col-md-4">
-                <div class="metric-card">
-                  <div class="label">Primary Intent</div>
-                  <div id="wfIntent" class="value">-</div>
-                </div>
-              </div>
-              <div class="col-12 col-md-4">
-                <div class="metric-card">
-                  <div class="label">Leadership Score</div>
-                  <div id="wfLeadership" class="value">0.00</div>
-                </div>
-              </div>
-              <div class="col-12 col-md-4">
-                <div class="metric-card">
-                  <div class="label">Compensation Index</div>
-                  <div id="wfComp" class="value">0.00</div>
-                </div>
-              </div>
-            </div>
-
-            <div class="small text-muted mt-3">3-agent results</div>
-            <div class="row g-2 mt-1">
-              <div class="col-12 col-md-4">
-                <div class="metric-card">
-                  <div class="label">Predicted Job Role</div>
-                  <div id="wfRole" class="value">-</div>
-                  <div class="small text-muted">Confidence: <span id="wfRoleConf">0%</span></div>
-                </div>
-              </div>
-              <div class="col-12 col-md-4">
-                <div class="metric-card">
-                  <div class="label">Project Skill Match</div>
-                  <div id="wfMatch" class="value">0%</div>
-                  <div class="small text-muted">Missing: <span id="wfMissing">-</span></div>
-                </div>
-              </div>
-              <div class="col-12 col-md-4">
-                <div class="metric-card">
-                  <div class="label">Team Compatibility</div>
-                  <div id="wfCompat" class="value">0%</div>
-                  <div class="small text-muted">Skill/Behavior: <span id="wfCompatParts">-</span></div>
-                </div>
-              </div>
-              <div class="col-12">
-                <details class="evidence-box">
-                  <summary>Compatibility Notes (<span id="wfNotesCount">0</span>)</summary>
-                  <ul id="wfNotes" class="mb-0 mt-2"><li class="empty">No notes</li></ul>
-                </details>
-              </div>
-            </div>
-          </section>
-        </section>
+      <div class="mb-3 animate__animated animate__fadeInUp">
+        <ul class="nav nav-pills justify-content-center gap-3 p-2 rounded-5 shadow-sm border" id="mainTabs" style="max-width: fit-content; margin: 0 auto; background: var(--surface);">
+          <li class="nav-item">
+            <button type="button" class="main-tab-btn active px-4 py-2" data-main-tab="resume">
+              <i class="bi bi-file-earmark-person me-2"></i>Resume Analysis
+            </button>
+          </li>
+          <li class="nav-item">
+            <button type="button" class="main-tab-btn px-4 py-2" data-main-tab="behavioral">
+              <i class="bi bi-people me-2"></i>Behavioral Analysis
+            </button>
+          </li>
+          <li class="nav-item">
+            <button type="button" class="main-tab-btn px-4 py-2" data-main-tab="stress">
+              <i class="bi bi-activity me-2"></i>Stress/Workload Analyses
+            </button>
+          </li>
+        </ul>
       </div>
 
-      <div class="col-12 col-xl-5">
-        <section class="panel p-3 p-lg-4 h-100 d-flex flex-column">
-          <div class="d-flex flex-wrap gap-2 mb-2">
-            <button id="copyBtn" type="button" class="btn btn-outline-secondary btn-sm">Copy JSON</button>
-            <button id="downloadBtn" type="button" class="btn btn-outline-secondary btn-sm">Download JSON</button>
-            <button id="clearHistoryBtn" type="button" class="btn btn-outline-secondary btn-sm">Clear History</button>
-          </div>
-          <pre id="output" class="flex-grow-1">__OUTPUT__</pre>
-          <div id="note" class="small text-muted mt-2"></div>
-
-          <div class="history mt-3 pt-3">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-              <strong>Recent Analyses</strong>
-              <span class="small text-muted">Stored in browser</span>
-            </div>
-            <div id="historyList" class="history-list"><div class="empty">No previous analyses</div></div>
-          </div>
-        </section>
-      </div>
-    </div>
-
-    <div class="row g-3" id="behavioral-tab" style="display:none;">
-      <div class="col-12 col-xl-7">
-        <section class="panel p-3 p-lg-4">
-          <form id="behavioralForm">
-            <h5 class="mb-4 fw-bold">🎯 Team Recruitment & Compatibility Analysis</h5>
-            
-            <!-- Candidate Info -->
-            <div class="row g-3 mb-4">
-              <div class="col-12">
-                <label class="form-label fw-semibold">📝 Candidate Name *</label>
-                <input type="text" id="candidateName" class="form-control" placeholder="e.g., John Smith" required>
+      <div class="row g-3 animate__animated animate__fadeIn" id="resume-tab">
+        <div class="col-12 col-xl-8">
+          <section class="panel p-3 p-lg-4">
+            <form id="uploadForm" action="/web/analyze" method="post" enctype="multipart/form-data">
+              <div id="dropzone" class="dropzone rounded-4 p-2 px-3 mb-3 d-flex flex-column align-items-center justify-content-center position-relative overflow-hidden" style="min-height: 120px; border-width: 2px; border-style: dashed;">
+                <i class="bi bi-cloud-arrow-up display-5 text-muted mb-1 animate__animated animate__pulse animate__infinite"></i>
+                <div class="fw-semibold">Drop resume here or browse files</div>
+                <div class="small text-muted mb-2">PDF or DOCX (Max 10 MB)</div>
+                <input id="resumeFile" type="file" name="file" class="form-control position-absolute top-0 start-0 opacity-0 w-100 h-100" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required style="cursor: pointer;" />
+                <div id="fileMeta" class="badge rounded-pill text-bg-light border shadow-sm px-3 py-2 mt-1">No file selected</div>
               </div>
-              <div class="col-12">
-                <label class="form-label fw-semibold">💼 Target Job Role *</label>
-                <select id="jobRole" class="form-select" required>
-                  <option value="">Select a role...</option>
-                  <option value="Engineer">Engineer</option>
-                  <option value="Manager">Manager</option>
-                  <option value="Designer">Designer</option>
-                  <option value="Sales">Sales</option>
-                  <option value="HR">HR</option>
-                  <option value="Data Analyst">Data Analyst</option>
-                  <option value="Product Manager">Product Manager</option>
-                </select>
+
+              <div class="d-flex flex-wrap gap-2 justify-content-start align-items-center">
+                <button id="submitBtn" type="submit" class="btn btn-primary px-4 fw-semibold shadow-sm"><i class="bi bi-play-circle me-1"></i> Analyze Resume</button>
+                <div class="vr mx-1 opacity-25 d-none d-sm-block"></div>
+                <button id="clearBtn" type="button" class="btn btn-outline-secondary px-3"><i class="bi bi-trash3 me-1"></i> Clear</button>
+                <button id="downloadResumePdfBtn" type="button" class="btn btn-outline-secondary px-3"><i class="bi bi-file-pdf me-1"></i> Report</button>
               </div>
+            </form>
+
+            <div id="status" class="status mt-3 __STATUS_CLASS__">
+              __STATUS_TEXT__
+            </div>
+            <textarea id="initialResumeOutput" hidden>__OUTPUT__</textarea>
+
+            <div id="steps" class="steps mt-3">
+              <span class="step" data-step="0">Upload</span>
+              <span class="step" data-step="1">Parse</span>
+              <span class="step" data-step="2">Skills</span>
+              <span class="step" data-step="3">Intent</span>
+              <span class="step" data-step="4">Signals</span>
             </div>
 
-            <hr class="my-4">
-
-            <!-- OCEAN Personality Questions -->
-            <div class="mb-4">
-              <h6 class="fw-semibold mb-3">🧠 OCEAN Personality Assessment</h6>
-              <div id="oceanQuestions"></div>
-              <small class="text-muted d-block mt-2">Answer all questions by selecting the option that best describes you.</small>
-            </div>
-
-            <hr class="my-4">
-
-            <!-- Team Members -->
-            <div class="mb-4">
-              <label class="form-label fw-semibold">👥 Current Team Members (for compatibility analysis)</label>
-              <div id="teamMembersContainer" class="mb-3">
-                <div class="alert alert-info small mb-2">
-                  Add existing team members to analyze compatibility with this candidate
-                </div>
-                <div id="teamMembersList"></div>
-              </div>
-              <button type="button" id="addTeamMemberBtn" class="btn btn-sm btn-outline-primary">+ Add Team Member</button>
-            </div>
-
-            <hr class="my-4">
-
-            <!-- Open-Ended Response -->
-            <div class="mb-4">
-              <label class="form-label fw-semibold">💬 Additional Comments</label>
-              <textarea id="textAnswer" class="form-control" rows="3" placeholder="Share any additional context or observations about this candidate..."></textarea>
-            </div>
-
-            <div class="d-flex flex-wrap gap-2">
-              <button id="analyzeBehavioralBtn" type="submit" class="btn btn-primary px-4">🚀 Analyze & Generate Report</button>
-              <button id="clearBehavioralBtn" type="button" class="btn btn-outline-secondary">Clear Form</button>
-            </div>
-          </form>
-
-          <div id="behavioralStatus" class="status mt-3 status ok" style="display:none;">Analysis in progress...</div>
-
-          <div id="behavioralMetrics" class="mt-4" style="display:none;">
-            <ul class="nav nav-tabs nav-fill gap-1" id="behavioralTabs">
-              <li><button type="button" class="behavioral-tab-btn active" data-tab="personality">Personality</button></li>
-              <li><button type="button" class="behavioral-tab-btn" data-tab="role-fit">Role Fit</button></li>
-              <li><button type="button" class="behavioral-tab-btn" data-tab="team">Team Fit</button></li>
-              <li><button type="button" class="behavioral-tab-btn" data-tab="summary">Summary</button></li>
+            <ul class="nav nav-pills gap-2 mt-3" id="tabs">
+              <li>
+                <button
+                  type="button"
+                  class="tab-btn active"
+                  data-tab="overview"
+                >
+                  Overview
+                </button>
+              </li>
+              <li>
+                <button type="button" class="tab-btn" data-tab="skills">
+                  Skills
+                </button>
+              </li>
+              <li>
+                <button type="button" class="tab-btn" data-tab="evidence">
+                  Evidence
+                </button>
+              </li>
+              <li>
+                <button type="button" class="tab-btn" data-tab="workforce">
+                  Workforce Intelligence
+                </button>
+              </li>
             </ul>
 
-            <!-- Personality Tab -->
-            <section id="tab-personality" class="tab-panel active mt-3">
+            <section id="tab-overview" class="tab-panel active mt-3">
               <div class="row g-2">
-                <div class="col-6"><div class="ocean-card"><div class="ocean-icon">O</div><div class="label">Openness</div><div id="bOpenness" class="value">0</div></div></div>
-                <div class="col-6"><div class="ocean-card"><div class="ocean-icon">C</div><div class="label">Conscientiousness</div><div id="bConscientiousness" class="value">0</div></div></div>
-                <div class="col-6"><div class="ocean-card"><div class="ocean-icon">E</div><div class="label">Extraversion</div><div id="bExtraversion" class="value">0</div></div></div>
-                <div class="col-6"><div class="ocean-card"><div class="ocean-icon">A</div><div class="label">Agreeableness</div><div id="bAgreeableness" class="value">0</div></div></div>
-                <div class="col-12"><div class="ocean-card"><div class="ocean-icon">N</div><div class="label">Neuroticism</div><div id="bNeuroticism" class="value">0</div></div></div>
-              </div>
-            </section>
-
-            <!-- Role Fit Tab -->
-            <section id="tab-role-fit" class="tab-panel mt-3">
-              <div class="mb-3">
-                <div class="metric-card">
-                  <div class="label">Role Fit Score</div>
-                  <div id="bRoleScore" class="value large">0</div>
+                <div class="col-6 col-md-3">
+                  <div class="metric-card">
+                    <div class="label">Primary Intent</div>
+                    <div id="mPrimary" class="value">-</div>
+                  </div>
+                </div>
+                <div class="col-6 col-md-3">
+                  <div class="metric-card">
+                    <div class="label">Secondary Intent</div>
+                    <div id="mSecondary" class="value">-</div>
+                  </div>
+                </div>
+                <div class="col-6 col-md-3">
+                  <div class="metric-card">
+                    <div class="label">Leadership Score</div>
+                    <div id="mLead" class="value">0.00</div>
+                  </div>
+                </div>
+                <div class="col-6 col-md-3">
+                  <div class="metric-card">
+                    <div class="label">Compensation Index</div>
+                    <div id="mComp" class="value">0.00</div>
+                  </div>
                 </div>
               </div>
-              <div class="mb-3">
-                <strong class="d-block mb-2">Role Analysis:</strong>
-                <div id="bRoleRec" class="small"><span class="text-muted">No recommendations</span></div>
+
+              <div class="candidate-profile mt-3">
+                <div
+                  class="d-flex flex-wrap justify-content-between gap-2 mb-2"
+                >
+                  <div>
+                    <h6 class="mb-1 fw-bold">Candidate Profile</h6>
+                    <div class="small text-muted">
+                      Detected from uploaded resume
+                    </div>
+                  </div>
+                  <span id="profileStatus" class="profile-status"
+                    >Awaiting resume</span
+                  >
+                </div>
+                <div class="row g-2">
+                  <div class="col-12 col-lg-4">
+                    <div class="profile-item">
+                      <span>Name</span><strong id="pName">-</strong>
+                    </div>
+                  </div>
+                  <div class="col-12 col-lg-4">
+                    <div class="profile-item">
+                      <span>Email</span><strong id="pEmail">-</strong>
+                    </div>
+                  </div>
+                  <div class="col-12 col-lg-4">
+                    <div class="profile-item">
+                      <span>Phone</span><strong id="pPhone">-</strong>
+                    </div>
+                  </div>
+                  <div class="col-12 col-lg-4">
+                    <div class="profile-item">
+                      <span>Location</span><strong id="pLocation">-</strong>
+                    </div>
+                  </div>
+                </div>
+                <div class="profile-list mt-2">
+                  <span>Education</span>
+                  <div id="pEducation" class="profile-values">-</div>
+                </div>
+                <div class="profile-list mt-2">
+                  <span>Certifications / Other</span>
+                  <div id="pCertifications" class="profile-values">-</div>
+                </div>
+              </div>
+
+              <div class="row g-3 mt-3">
+                <div class="col-12 col-md-6">
+                  <div class="bar-label">
+                    Skills Confidence <span id="tSkills">0%</span>
+                  </div>
+                  <div class="bar-wrap">
+                    <span id="bSkills" class="bar-fill"></span>
+                  </div>
+                </div>
+                <div class="col-12 col-md-6">
+                  <div class="bar-label">
+                    Intent Confidence <span id="tIntent">0%</span>
+                  </div>
+                  <div class="bar-wrap">
+                    <span id="bIntent" class="bar-fill"></span>
+                  </div>
+                </div>
+                <div class="col-12 col-md-6">
+                  <div class="bar-label">
+                    Leadership Confidence <span id="tLead">0%</span>
+                  </div>
+                  <div class="bar-wrap">
+                    <span id="bLead" class="bar-fill"></span>
+                  </div>
+                </div>
+                <div class="col-12 col-md-6">
+                  <div class="bar-label">
+                    Compensation Confidence <span id="tComp">0%</span>
+                  </div>
+                  <div class="bar-wrap">
+                    <span id="bComp" class="bar-fill"></span>
+                  </div>
+                </div>
               </div>
             </section>
 
-            <!-- Team Fit Tab -->
-            <section id="tab-team-fit" class="tab-panel mt-3">
-              <div class="row g-2 mb-3">
-                <div class="col-6"><div class="metric-card"><div class="label">Compatibility</div><div id="bCompatScore" class="value">0%</div></div></div>
-                <div class="col-6"><div class="metric-card"><div class="label">Team Size</div><div id="bTeamSize" class="value">-</div></div></div>
+            <section id="tab-skills" class="tab-panel mt-3">
+              <input
+                id="skillSearch"
+                class="form-control mb-3"
+                type="text"
+                placeholder="Filter skills"
+              />
+              <div class="small text-muted mb-1">Technical Skills</div>
+              <div id="skillsTech" class="chips mb-3">
+                <span class="empty">No data</span>
               </div>
-              <div class="mb-3">
-                <strong class="d-block mb-2">✅ Synergies:</strong>
-                <div id="bSynergies" class="small"><span class="text-muted">No team yet</span></div>
-              </div>
-              <div class="mb-3">
-                <strong class="d-block mb-2">⚠️  Potential Conflicts:</strong>
-                <div id="bConflicts" class="small"><span class="text-muted">No team yet</span></div>
-              </div>
-              <div class="mb-3">
-                <strong class="d-block mb-2">💡 Recommendations:</strong>
-                <div id="bTeamRec" class="small"><span class="text-muted">No team yet</span></div>
+              <div class="small text-muted mb-1">Soft Skills</div>
+              <div id="skillsSoft" class="chips">
+                <span class="empty">No data</span>
               </div>
             </section>
 
-            <!-- Summary Tab -->
-            <section id="tab-summary" class="tab-panel mt-3">
-              <div class="metric-card mb-3 bg-light">
-                <div class="label">Behavioral Fit Score</div>
-                <div id="bFitScore" class="value large">0</div>
+            <section id="tab-evidence" class="tab-panel mt-3">
+              <details open class="evidence-box mb-2">
+                <summary>
+                  Leadership Evidence (<span id="cLead">0</span>)
+                </summary>
+                <ul id="eLead" class="mb-0 mt-2">
+                  <li class="empty">No evidence available</li>
+                </ul>
+              </details>
+              <details class="evidence-box">
+                <summary>
+                  Compensation Evidence (<span id="cComp">0</span>)
+                </summary>
+                <ul id="eComp" class="mb-0 mt-2">
+                  <li class="empty">No evidence available</li>
+                </ul>
+              </details>
+            </section>
+
+            <section id="tab-workforce" class="tab-panel mt-3">
+              <div
+                class="d-flex flex-wrap gap-2 align-items-center justify-content-between"
+              >
+                <div class="small text-muted">
+                  Uses detected resume skills + your project/team inputs to run
+                  the 3-agent workforce pipeline.
+                </div>
+                <button
+                  id="runWorkforceBtn"
+                  type="button"
+                  class="btn btn-primary btn-sm"
+                >
+                  Run Workforce Intelligence
+                </button>
               </div>
-              <div class="metric-card mb-3">
-                <div class="label">Overall Assessment</div>
-                <div id="bTeamFit" class="value">-</div>
+
+              <div class="row g-2 mt-2">
+                <div class="col-12">
+                  <label class="form-label small text-muted mb-1"
+                    >Employee Skills (auto-filled from resume)</label
+                  >
+                  <textarea
+                    id="wfEmployeeSkills"
+                    class="form-control wf-textarea"
+                    rows="2"
+                    placeholder="Analyze a resume first to auto-fill skills."
+                  ></textarea>
+                </div>
+                <div class="col-12 col-md-6">
+                  <label class="form-label small text-muted mb-1"
+                    >Project Name</label
+                  >
+                  <input
+                    id="wfProjectName"
+                    class="form-control"
+                    type="text"
+                    placeholder="e.g., Fraud Detection System"
+                  />
+                </div>
+                <div class="col-12 col-md-6">
+                  <label class="form-label small text-muted mb-1"
+                    >Team Name</label
+                  >
+                  <input
+                    id="wfTeamName"
+                    class="form-control"
+                    type="text"
+                    placeholder="e.g., Risk ML"
+                  />
+                </div>
+                <div class="col-12 col-md-6">
+                  <label class="form-label small text-muted mb-1"
+                    >Project Skills Required (comma-separated)</label
+                  >
+                  <textarea
+                    id="wfProjectSkills"
+                    class="form-control wf-textarea"
+                    rows="2"
+                    placeholder="Python, Machine Learning, SQL"
+                  ></textarea>
+                </div>
+                <div class="col-12 col-md-6">
+                  <label class="form-label small text-muted mb-1"
+                    >Team Skills (comma-separated)</label
+                  >
+                  <textarea
+                    id="wfTeamSkills"
+                    class="form-control wf-textarea"
+                    rows="2"
+                    placeholder="Python, SQL, MLOps, Communication"
+                  ></textarea>
+                </div>
+                <div class="col-12">
+                  <label class="form-label small text-muted mb-1"
+                    >Team Values (comma-separated)</label
+                  >
+                  <input
+                    id="wfTeamValues"
+                    class="form-control"
+                    type="text"
+                    placeholder="collaboration, ownership"
+                  />
+                </div>
+                <div class="col-12">
+                  <div class="form-check mt-1">
+                    <input
+                      id="wfLeadershipNeeded"
+                      class="form-check-input"
+                      type="checkbox"
+                    />
+                    <label
+                      class="form-check-label small text-muted"
+                      for="wfLeadershipNeeded"
+                      >Leadership needed for this team</label
+                    >
+                  </div>
+                </div>
               </div>
-              <div class="mb-3">
-                <strong class="d-block mb-2">⚠️  Risk Flags:</strong>
-                <div id="bRiskFlags"><span class="text-muted">No risks identified</span></div>
+
+              <div class="small text-muted mt-3">
+                Behavioral signals (auto-filled from resume analysis)
               </div>
-              <div class="mb-3">
-                <strong class="d-block mb-2">📋 HR Summary:</strong>
-                <div id="bSummary" class="text-muted">-</div>
+              <div class="row g-2 mt-1">
+                <div class="col-12 col-md-4">
+                  <div class="metric-card">
+                    <div class="label">Primary Intent</div>
+                    <div id="wfIntent" class="value">-</div>
+                  </div>
+                </div>
+                <div class="col-12 col-md-4">
+                  <div class="metric-card">
+                    <div class="label">Leadership Score</div>
+                    <div id="wfLeadership" class="value">0.00</div>
+                  </div>
+                </div>
+                <div class="col-12 col-md-4">
+                  <div class="metric-card">
+                    <div class="label">Compensation Index</div>
+                    <div id="wfComp" class="value">0.00</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="small text-muted mt-3">3-agent results</div>
+              <div class="row g-2 mt-1">
+                <div class="col-12 col-md-4">
+                  <div class="metric-card">
+                    <div class="label">Predicted Job Role</div>
+                    <div id="wfRole" class="value">-</div>
+                    <div class="small text-muted">
+                      Confidence: <span id="wfRoleConf">0%</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-12 col-md-4">
+                  <div class="metric-card">
+                    <div class="label">Project Skill Match</div>
+                    <div id="wfMatch" class="value">0%</div>
+                    <div class="small text-muted">
+                      Missing: <span id="wfMissing">-</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-12 col-md-4">
+                  <div class="metric-card">
+                    <div class="label">Team Compatibility</div>
+                    <div id="wfCompat" class="value">0%</div>
+                    <div class="small text-muted">
+                      Skill/Behavior: <span id="wfCompatParts">-</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-12">
+                  <details class="evidence-box">
+                    <summary>
+                      Compatibility Notes (<span id="wfNotesCount">0</span>)
+                    </summary>
+                    <ul id="wfNotes" class="mb-0 mt-2">
+                      <li class="empty">No notes</li>
+                    </ul>
+                  </details>
+                </div>
               </div>
             </section>
-          </div>
-        </section>
+          </section>
+        </div>
+
+        <div class="col-12 col-xl-4">
+          <section class="panel p-3 p-lg-4 h-auto">
+            <div
+              class="d-flex flex-wrap gap-2 justify-content-between align-items-start mb-3"
+            >
+              <div>
+                <h5 class="mb-1 fw-bold">Recent Analyses</h5>
+                <div class="small text-muted">Stored in browser</div>
+              </div>
+              <button
+                id="clearHistoryBtn"
+                type="button"
+                class="btn btn-outline-secondary btn-sm"
+              >
+                Clear History
+              </button>
+            </div>
+            <div id="historyList" class="history-list">
+              <div class="empty">No previous analyses</div>
+            </div>
+          </section>
+        </div>
       </div>
 
-      <div class="col-12 col-xl-5">
-        <section class="panel p-3 p-lg-4 h-100 d-flex flex-column">
-          <div class="d-flex flex-wrap gap-2 mb-2">
-            <button id="copyBehavioralBtn" type="button" class="btn btn-outline-secondary btn-sm">📋 Copy JSON</button>
-            <button id="downloadBehavioralBtn" type="button" class="btn btn-outline-secondary btn-sm">💾 Download</button>
-          </div>
-          <pre id="behavioralOutput" class="flex-grow-1 output-panel">{"message": "Fill the form and analyze to see results"}</pre>
-        </section>
-      </div>
-    </div>
+      <div class="row g-3 animate__animated animate__fadeIn" id="behavioral-tab" style="display: none">
+        <div class="col-12">
+          <section class="panel p-3 p-lg-4">
+            <form id="behavioralForm">
+              <h5 class="mb-4 fw-semibold">
+                Team recruitment and compatibility
+              </h5>
 
-    <!-- STRESS / WORKLOAD ANALYSIS TAB -->
-    <div class="row g-3" id="stress-tab" style="display:none;">
-      <div class="col-12 col-xl-7">
-        <section class="panel p-3 p-lg-4">
-          <h5 class="mb-4 fw-bold">📊 Employee Stress & Workload Analysis</h5>
-          
-          <form id="stressForm">
-            <div class="row g-3">
-              <div class="col-6">
-                <label class="form-label fw-semibold">Tasks Assigned *</label>
-                <input type="number" id="tasksAssigned" class="form-control" min="0" placeholder="e.g., 12" required>
+              <!-- Candidate Info -->
+              <div class="row g-3 mb-4">
+                <div class="col-12 col-md-6 form-floating">
+                  <input
+                    type="text"
+                    id="candidateName"
+                    class="form-control shadow-sm border-0 bg-light"
+                    placeholder="e.g., John Smith"
+                    required
+                  />
+                  <label for="candidateName" class="fw-semibold ms-2 text-muted"><i class="bi bi-person me-2 text-primary"></i>Candidate name *</label>
+                </div>
+                <div class="col-12 col-md-6 form-floating">
+                  <select id="jobRole" class="form-select shadow-sm border-0 bg-light" required>
+                    <option value="">Select a role...</option>
+                    <option value="Engineer">Engineer</option>
+                    <option value="Manager">Manager</option>
+                    <option value="Designer">Designer</option>
+                    <option value="Sales">Sales</option>
+                    <option value="HR">HR</option>
+                    <option value="Data Analyst">Data Analyst</option>
+                    <option value="Product Manager">Product Manager</option>
+                  </select>
+                  <label for="jobRole" class="fw-semibold ms-2 text-muted"><i class="bi bi-briefcase me-2 text-primary"></i>Target job role *</label>
+                </div>
               </div>
-              <div class="col-6">
-                <label class="form-label fw-semibold">Tasks Completed *</label>
-                <input type="number" id="tasksCompleted" class="form-control" min="0" placeholder="e.g., 8" required>
+
+              <hr class="my-4" />
+
+              <!-- OCEAN Personality Questions -->
+              <div class="mb-4">
+                <div class="d-flex justify-content-between align-items-end mb-2">
+                  <h6 class="fw-semibold mb-0">OCEAN personality assessment</h6>
+                  <span class="badge bg-primary text-white rounded-pill small" id="oceanProgressText" style="opacity: 0.8;">0 / 15 Answered</span>
+                </div>
+                <div class="progress mb-4 shadow-sm" style="height: 6px;">
+                  <div class="progress-bar progress-bar-striped progress-bar-animated bg-success" id="oceanProgressBar" role="progressbar" style="width: 0%"></div>
+                </div>
+                <div id="oceanQuestions"></div>
+                <small class="text-muted d-block mt-2"
+                  >Answer all questions by selecting the option that best
+                  describes you.</small
+                >
               </div>
-              <div class="col-6">
-                <label class="form-label fw-semibold">Overdue Tasks *</label>
-                <input type="number" id="overdueTasks" class="form-control" min="0" placeholder="e.g., 3" required>
+
+              <hr class="my-4" />
+
+              <!-- Team Members -->
+              <div class="mb-4">
+                <label class="form-label fw-semibold"
+                  >Current team members (compatibility)</label
+                >
+                <div id="teamMembersContainer" class="mb-3">
+                  <div class="callout-muted small mb-2">
+                    Add existing team members to analyze compatibility with this
+                    candidate.
+                  </div>
+                  <div id="teamMembersList"></div>
+                </div>
+                <button
+                  type="button"
+                  id="addTeamMemberBtn"
+                  class="btn btn-sm btn-outline-primary"
+                >
+                  + Add Team Member
+                </button>
               </div>
-              <div class="col-6">
-                <label class="form-label fw-semibold">Working Hours/Day *</label>
-                <input type="number" id="workingHours" class="form-control" min="0" max="24" step="0.5" placeholder="e.g., 10" required>
+
+              <hr class="my-4" />
+
+              <!-- Open-Ended Response -->
+              <div class="mb-4">
+                <label class="form-label fw-semibold"
+                  >Additional comments</label
+                >
+                <textarea
+                  id="textAnswer"
+                  class="form-control"
+                  rows="3"
+                  placeholder="Share any additional context or observations about this candidate..."
+                ></textarea>
               </div>
-              <div class="col-6">
-                <label class="form-label fw-semibold">Meetings Per Day *</label>
-                <input type="number" id="meetingsPerDay" class="form-control" min="0" placeholder="e.g., 6" required>
+
+              <div class="d-flex flex-wrap gap-2">
+                <button
+                  id="analyzeBehavioralBtn"
+                  type="submit"
+                  class="btn btn-primary px-4"
+                >
+                  Analyze and generate report
+                </button>
+                <button
+                  id="clearBehavioralBtn"
+                  type="button"
+                  class="btn btn-outline-secondary"
+                >
+                  Clear Form
+                </button>
+                <button
+                  id="downloadBehavioralPdfBtn"
+                  type="button"
+                  class="btn btn-outline-secondary"
+                >
+                  Download Professional PDF Report
+                </button>
               </div>
-              <div class="col-6">
-                <label class="form-label fw-semibold">Meeting Hours *</label>
-                <input type="number" id="meetingHours" class="form-control" min="0" max="8" step="0.5" placeholder="e.g., 5" required>
+            </form>
+
+            <div
+              id="behavioralStatus"
+              class="status mt-3 status ok"
+              style="display: none"
+            >
+              Analysis in progress...
+            </div>
+
+            <div id="behavioralMetrics" class="mt-4" style="display: none">
+              <ul class="nav nav-tabs nav-fill gap-1" id="behavioralTabs">
+                <li>
+                  <button
+                    type="button"
+                    class="behavioral-tab-btn active"
+                    data-tab="personality"
+                  >
+                    Personality
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    class="behavioral-tab-btn"
+                    data-tab="role-fit"
+                  >
+                    Role Fit
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    class="behavioral-tab-btn"
+                    data-tab="team"
+                  >
+                    Team Fit
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    class="behavioral-tab-btn"
+                    data-tab="summary"
+                  >
+                    Summary
+                  </button>
+                </li>
+              </ul>
+              
+              <!-- Toggle Candidate Personality Profile Button -->
+              <div class="d-flex justify-content-end mt-3">
+                 <button id="toggleProfileBtn" type="button" class="btn btn-outline-primary btn-sm rounded-pill"><i class="bi bi-person-badge me-1"></i> Toggle Personality Profile View</button>
               </div>
+
+              <!-- Personality Tab -->
+              <section id="tab-personality" class="tab-panel active mt-3">
+                <div class="row g-2">
+                  <div class="col-6">
+                    <div class="ocean-card">
+                      <div class="ocean-icon">O</div>
+                      <div class="label">Openness</div>
+                      <div id="bOpenness" class="value">0</div>
+                    </div>
+                  </div>
+                  <div class="col-6">
+                    <div class="ocean-card">
+                      <div class="ocean-icon">C</div>
+                      <div class="label">Conscientiousness</div>
+                      <div id="bConscientiousness" class="value">0</div>
+                    </div>
+                  </div>
+                  <div class="col-6">
+                    <div class="ocean-card">
+                      <div class="ocean-icon">E</div>
+                      <div class="label">Extraversion</div>
+                      <div id="bExtraversion" class="value">0</div>
+                    </div>
+                  </div>
+                  <div class="col-6">
+                    <div class="ocean-card">
+                      <div class="ocean-icon">A</div>
+                      <div class="label">Agreeableness</div>
+                      <div id="bAgreeableness" class="value">0</div>
+                    </div>
+                  </div>
+                  <div class="col-12">
+                    <div class="ocean-card">
+                      <div class="ocean-icon">N</div>
+                      <div class="label">Neuroticism</div>
+                      <div id="bNeuroticism" class="value">0</div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <!-- Role Fit Tab -->
+              <section id="tab-role-fit" class="tab-panel mt-3">
+                <div class="mb-3">
+                  <div class="metric-card">
+                    <div class="label">Role Fit Score</div>
+                    <div id="bRoleScore" class="value large">0</div>
+                  </div>
+                </div>
+                <div class="mb-3">
+                  <strong class="d-block mb-2">Role Analysis:</strong>
+                  <div id="bRoleRec" class="small">
+                    <span class="text-muted">No recommendations</span>
+                  </div>
+                </div>
+              </section>
+
+              <!-- Team Fit Tab -->
+              <section id="tab-team-fit" class="tab-panel mt-3">
+                <div class="row g-2 mb-3">
+                  <div class="col-6">
+                    <div class="metric-card">
+                      <div class="label">Compatibility</div>
+                      <div id="bCompatScore" class="value">0%</div>
+                    </div>
+                  </div>
+                  <div class="col-6">
+                    <div class="metric-card">
+                      <div class="label">Team Size</div>
+                      <div id="bTeamSize" class="value">-</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="mb-3">
+                  <strong class="d-block mb-2">Synergies</strong>
+                  <div id="bSynergies" class="small">
+                    <span class="text-muted">No team yet</span>
+                  </div>
+                </div>
+                <div class="mb-3">
+                  <strong class="d-block mb-2">Potential conflicts</strong>
+                  <div id="bConflicts" class="small">
+                    <span class="text-muted">No team yet</span>
+                  </div>
+                </div>
+                <div class="mb-3">
+                  <strong class="d-block mb-2">Recommendations</strong>
+                  <div id="bTeamRec" class="small">
+                    <span class="text-muted">No team yet</span>
+                  </div>
+                </div>
+              </section>
+
+              <!-- Summary Tab -->
+              <section id="tab-summary" class="tab-panel mt-3">
+                <div class="metric-card mb-3 bg-light">
+                  <div class="label">Behavioral Fit Score</div>
+                  <div id="bFitScore" class="value large">0</div>
+                </div>
+                <div class="metric-card mb-3">
+                  <div class="label">Overall Assessment</div>
+                  <div id="bTeamFit" class="value">-</div>
+                </div>
+                <div class="mb-3">
+                  <strong class="d-block mb-2">Risk flags</strong>
+                  <div id="bRiskFlags">
+                    <span class="text-muted">No risks identified</span>
+                  </div>
+                </div>
+                <div class="mb-3">
+                  <strong class="d-block mb-2">HR summary</strong>
+                  <div id="bSummary" class="text-muted">-</div>
+                </div>
+              </section>
+              </section>
+            </div>
+
+            <!-- Team Management & Comparison Section (Moved into Behavioral Tab) -->
+            <div
+              class="row g-3 mt-4 align-items-start"
+              id="team-management-section"
+              style="display: none"
+            >
+              <!-- Personality Type Display -->
               <div class="col-12">
-                <label class="form-label fw-semibold">Working on Weekends</label>
-                <select id="weekendWork" class="form-select" required>
-                  <option value="0">No</option>
-                  <option value="1">Yes</option>
-                </select>
+                <section class="panel p-3 p-lg-4" id="candidatePersonalitySection" style="display: none">
+                  <h5 class="mb-3 fw-semibold">Personality profile</h5>
+                  <div class="d-flex flex-column gap-3">
+                    <div class="personality-card w-100">
+                      <div class="ptype-name" id="personalityTypeName">Profile</div>
+                      <div class="ptype-description" id="personalityTypeDesc">
+                        Loading...
+                      </div>
+                    </div>
+                    <div class="personality-strengths w-100">
+                      <strong class="d-block mb-2">Strengths</strong>
+                      <div id="personalityStrengths" class="small"></div>
+                    </div>
+                  </div>
+                </section>
+              </div>
+
+              <!-- Team Builder -->
+              <div class="col-12">
+                <section class="panel p-3 p-lg-4 border-0 bg-transparent shadow-none px-0">
+                  <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0 fw-semibold">Team builder and scenarios</h5>
+                    <button
+                      id="addTeamScenarioBtn"
+                      class="btn btn-sm btn-outline-primary shadow-sm"
+                    >
+                      + New Team Scenario
+                    </button>
+                  </div>
+                  <div id="teamScenariosContainer" class="team-scenarios-grid"></div>
+                  <div
+                    class="callout-muted small mt-2"
+                    id="teamLimitAlert"
+                    style="display: none"
+                  >
+                    Maximum 5 team scenarios can be compared at once.
+                  </div>
+                </section>
+              </div>
+
+              <!-- Team Comparison & Recommendations -->
+              <div class="col-12">
+                <section class="panel p-3 p-lg-4 border-0 bg-white">
+                  <h5 class="mb-3 fw-semibold">
+                    Team comparison and recommendations
+                  </h5>
+                  <div id="teamComparisonContainer" class="team-comparison-grid">
+                    <div class="text-muted text-center p-4">
+                      Create teams and add members to see comparative analysis
+                    </div>
+                  </div>
+                </section>
+              </div>
+
+              <!-- Candidate History -->
+              <div class="col-12">
+                <section class="panel p-3 p-lg-4">
+                  <h5 class="mb-3 fw-semibold">Candidate history</h5>
+                  <div
+                    id="candidateHistoryList"
+                    class="history-list"
+                    style="max-height: 500px; overflow-y: auto"
+                  >
+                    <div class="text-muted small">No candidates analyzed yet</div>
+                  </div>
+                </section>
               </div>
             </div>
 
-            <div class="d-flex flex-wrap gap-2 mt-4">
-              <button id="analyzeStressBtn" type="submit" class="btn btn-primary px-4">🚀 Analyze Stress</button>
-              <button id="clearStressBtn" type="button" class="btn btn-outline-secondary">Clear</button>
-            </div>
-          </form>
+          </section>
+        </div>
+      </div>
 
-          <div id="stressStatus" class="status mt-3" style="display:none;"></div>
+      <!-- STRESS / WORKLOAD ANALYSIS TAB -->
+      <div class="row g-3 animate__animated animate__fadeIn" id="stress-tab" style="display: none">
+        <div class="col-12 col-xl-8">
+          <section class="panel p-3 p-lg-4">
+            <h5 class="mb-4 fw-semibold">Employee stress and workload</h5>
 
-          <!-- Results Section -->
-          <div id="stressResults" style="display:none;" class="mt-4">
-            <div class="row g-2 mb-4">
-              <div class="col-6">
-                <div class="metric-card">
-                  <div class="label">Stress Level</div>
-                  <div id="stressLevelDisplay" class="value large" style="padding: 1rem 0; font-size: 1.5rem; font-weight: bold;">-</div>
+            <form id="stressForm">
+              <div class="row g-3">
+                <div class="col-6">
+                  <label class="form-label fw-semibold">Tasks Assigned *</label>
+                  <input
+                    type="number"
+                    id="tasksAssigned"
+                    class="form-control"
+                    min="0"
+                    placeholder="e.g., 12"
+                    required
+                  />
+                </div>
+                <div class="col-6">
+                  <label class="form-label fw-semibold"
+                    >Tasks Completed *</label
+                  >
+                  <input
+                    type="number"
+                    id="tasksCompleted"
+                    class="form-control"
+                    min="0"
+                    placeholder="e.g., 8"
+                    required
+                  />
+                </div>
+                <div class="col-6">
+                  <label class="form-label fw-semibold">Overdue Tasks *</label>
+                  <input
+                    type="number"
+                    id="overdueTasks"
+                    class="form-control"
+                    min="0"
+                    placeholder="e.g., 3"
+                    required
+                  />
+                </div>
+                <div class="col-6">
+                  <label class="form-label fw-semibold"
+                    >Working Hours/Day *</label
+                  >
+                  <input
+                    type="number"
+                    id="workingHours"
+                    class="form-control"
+                    min="0"
+                    max="24"
+                    step="0.5"
+                    placeholder="e.g., 10"
+                    required
+                  />
+                </div>
+                <div class="col-6">
+                  <label class="form-label fw-semibold"
+                    >Meetings Per Day *</label
+                  >
+                  <input
+                    type="number"
+                    id="meetingsPerDay"
+                    class="form-control"
+                    min="0"
+                    placeholder="e.g., 6"
+                    required
+                  />
+                </div>
+                <div class="col-6">
+                  <label class="form-label fw-semibold">Meeting Hours *</label>
+                  <input
+                    type="number"
+                    id="meetingHours"
+                    class="form-control"
+                    min="0"
+                    max="8"
+                    step="0.5"
+                    placeholder="e.g., 5"
+                    required
+                  />
+                </div>
+                <div class="col-12">
+                  <label class="form-label fw-semibold"
+                    >Working on Weekends</label
+                  >
+                  <select id="weekendWork" class="form-select" required>
+                    <option value="0">No</option>
+                    <option value="1">Yes</option>
+                  </select>
                 </div>
               </div>
-              <div class="col-6">
-                <div class="metric-card">
-                  <div class="label">Risk Level</div>
-                  <div id="riskLevelDisplay" class="value large" style="padding: 1rem 0; font-size: 1.5rem; font-weight: bold;">-</div>
+
+              <div class="d-flex flex-wrap gap-2 mt-4">
+                <button
+                  id="analyzeStressBtn"
+                  type="submit"
+                  class="btn btn-primary px-4"
+                >
+                  Analyze stress
+                </button>
+                <button
+                  id="clearStressBtn"
+                  type="button"
+                  class="btn btn-outline-secondary"
+                >
+                  Clear
+                </button>
+                <button
+                  id="downloadStressPdfBtn"
+                  type="button"
+                  class="btn btn-outline-secondary"
+                >
+                  Download Professional PDF Report
+                </button>
+              </div>
+            </form>
+
+            <div
+              id="stressStatus"
+              class="status mt-3"
+              style="display: none"
+            ></div>
+
+            <!-- Results Section -->
+            <div id="stressResults" style="display: none" class="mt-4">
+              <div class="row g-2 mb-4">
+                <div class="col-6">
+                  <div class="metric-card">
+                    <div class="label">Stress Level</div>
+                    <div id="stressLevelDisplay" class="value large">-</div>
+                  </div>
+                </div>
+                <div class="col-6">
+                  <div class="metric-card">
+                    <div class="label">Risk Level</div>
+                    <div id="riskLevelDisplay" class="value large">-</div>
+                  </div>
+                </div>
+                <div class="col-4">
+                  <div class="metric-card">
+                    <div class="label">Workload Score</div>
+                    <div id="workloadScore" class="value">0/100</div>
+                  </div>
+                </div>
+                <div class="col-4">
+                  <div class="metric-card">
+                    <div class="label">Meeting Load</div>
+                    <div id="meetingLoadScore" class="value">0/100</div>
+                  </div>
+                </div>
+                <div class="col-4">
+                  <div class="metric-card">
+                    <div class="label">Task Completion</div>
+                    <div id="taskCompletion" class="value">0%</div>
+                  </div>
                 </div>
               </div>
-              <div class="col-4">
-                <div class="metric-card">
-                  <div class="label">Workload Score</div>
-                  <div id="workloadScore" class="value">0/100</div>
-                </div>
+
+              <!-- Insights -->
+              <div class="mb-4">
+                <strong class="d-block mb-2">Key insights</strong>
+                <div id="insightsList" class="small"></div>
               </div>
-              <div class="col-4">
-                <div class="metric-card">
-                  <div class="label">Meeting Load</div>
-                  <div id="meetingLoadScore" class="value">0/100</div>
-                </div>
+
+              <!-- Recommendations -->
+              <div class="mb-4">
+                <strong class="d-block mb-2">Recommendations</strong>
+                <div id="recommendationsList" class="small"></div>
               </div>
-              <div class="col-4">
-                <div class="metric-card">
-                  <div class="label">Task Completion</div>
-                  <div id="taskCompletion" class="value">0%</div>
-                </div>
-              </div>
+
+              <!-- Future Risk -->
+              <div
+                class="alert alert-warning"
+                id="futureRiskAlert"
+                style="display: none"
+              ></div>
             </div>
+          </section>
+        </div>
 
-            <!-- Insights -->
-            <div class="mb-4">
-              <strong class="d-block mb-2">🔍 Key Insights:</strong>
-              <div id="insightsList" class="small"></div>
-            </div>
-
-            <!-- Recommendations -->
-            <div class="mb-4">
-              <strong class="d-block mb-2">💡 Recommendations:</strong>
-              <div id="recommendationsList" class="small"></div>
-            </div>
-
-            <!-- Future Risk -->
-            <div class="alert alert-warning" id="futureRiskAlert" style="display:none;"></div>
-          </div>
-        </section>
-      </div>
-
-      <div class="col-12 col-xl-5">
-        <section class="panel p-3 p-lg-4">
-          <h5 class="mb-3 fw-bold">📈 Workload Trends</h5>
-          <div style="position: relative; height: 300px; background: var(--bg0);">
-            <canvas id="stressChart"></canvas>
-            <div id="chartPlaceholder" class="text-center text-muted py-5" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center;">
-              <p>Analyze an employee to see the chart</p>
-            </div>
-          </div>
-
-          <!-- Candidate History Table -->
-          <div class="mt-4">
-            <h6 class="fw-semibold mb-2">📋 Analysis History</h6>
-            <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
-              <table class="table table-sm table-hover">
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Stress</th>
-                    <th>Risk</th>
-                    <th>Score</th>
-                  </tr>
-                </thead>
-                <tbody id="stressHistoryTable">
-                  <tr><td colspan="4" class="text-muted text-center py-3">No analyses yet</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-      </div>
-    </div>
-
-    <!-- Team Management & Comparison Section -->
-    <div class="row g-3 mt-4" id="team-management-section" style="display:none;">
-      <!-- Personality Type Display -->
-      <div class="col-12">
-        <section class="panel p-3 p-lg-4">
-          <h5 class="mb-3 fw-bold">🎯 Personality Profile</h5>
-          <div class="row g-2">
-            <div class="col-12 col-md-6">
-              <div class="personality-card">
-                <div class="ptype-name" id="personalityTypeName">Profile</div>
-                <div class="ptype-description" id="personalityTypeDesc">Loading...</div>
+        <div class="col-12 col-xl-4">
+          <section class="panel p-3 p-lg-4">
+            <h5 class="mb-3 fw-semibold">Workload trends</h5>
+            <div
+              style="position: relative; height: 300px; background: var(--bg0)"
+            >
+              <canvas id="stressChart"></canvas>
+              <div
+                id="chartPlaceholder"
+                class="text-center text-muted py-5"
+                style="
+                  position: absolute;
+                  top: 0;
+                  left: 0;
+                  right: 0;
+                  bottom: 0;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                "
+              >
+                <p>Analyze an employee to see the chart</p>
               </div>
             </div>
-            <div class="col-12 col-md-6">
-              <div class="personality-strengths">
-                <strong class="d-block mb-2">💪 Strengths</strong>
-                <div id="personalityStrengths" class="small"></div>
+
+            <!-- Candidate History Table -->
+            <div class="mt-4">
+              <h6 class="fw-semibold mb-2 text-secondary">Analysis history</h6>
+              <div
+                class="table-responsive"
+                style="max-height: 300px; overflow-y: auto"
+              >
+                <table class="table table-sm table-hover">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Stress</th>
+                      <th>Risk</th>
+                      <th>Score</th>
+                    </tr>
+                  </thead>
+                  <tbody id="stressHistoryTable">
+                    <tr>
+                      <td colspan="4" class="text-muted text-center py-3">
+                        No analyses yet
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
+        </div>
       </div>
 
-      <!-- Team Builder -->
-      <div class="col-12 col-lg-8">
-        <section class="panel p-3 p-lg-4">
-          <div class="d-flex justify-content-between align-items-center mb-3">
-            <h5 class="mb-0 fw-bold">👥 Team Builder & Scenarios</h5>
-            <button id="addTeamScenarioBtn" class="btn btn-sm btn-outline-primary">+ New Team Scenario</button>
-          </div>
-          <div id="teamScenariosContainer" class="team-scenarios-grid"></div>
-          <div class="alert alert-info small mt-2" id="teamLimitAlert" style="display:none;">
-            Maximum 5 team scenarios can be compared at once.
-          </div>
-        </section>
-      </div>
+    </main>
 
-      <!-- Candidate History -->
-      <div class="col-12 col-lg-4">
-        <section class="panel p-3 p-lg-4">
-          <h5 class="mb-3 fw-bold">📋 Candidate History</h5>
-          <div id="candidateHistoryList" class="history-list" style="max-height: 500px; overflow-y: auto;">
-            <div class="text-muted small">No candidates analyzed yet</div>
-          </div>
-        </section>
-      </div>
-
-      <!-- Team Comparison & Recommendations -->
-      <div class="col-12">
-        <section class="panel p-3 p-lg-4">
-          <h5 class="mb-3 fw-bold">📊 Team Comparison & Recommendations</h5>
-          <div id="teamComparisonContainer" class="team-comparison-grid">
-            <div class="text-muted text-center p-4">Create teams and add members to see comparative analysis</div>
-          </div>
-        </section>
-      </div>
-    </div>
-
-      <div class="col-12 col-xl-5">
-        <section class="panel p-3 p-lg-4 h-100 d-flex flex-column">
-          <div class="d-flex flex-wrap gap-2 mb-2">
-            <button id="copyBtn" type="button" class="btn btn-outline-secondary btn-sm">Copy JSON</button>
-            <button id="downloadBtn" type="button" class="btn btn-outline-secondary btn-sm">Download JSON</button>
-            <button id="clearHistoryBtn" type="button" class="btn btn-outline-secondary btn-sm">Clear History</button>
-          </div>
-          <pre id="output" class="flex-grow-1">__OUTPUT__</pre>
-          <div id="note" class="small text-muted mt-2"></div>
-
-          <div class="history mt-3 pt-3">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-              <strong>Recent Analyses</strong>
-              <span class="small text-muted">Stored in browser</span>
-            </div>
-            <div id="historyList" class="history-list"><div class="empty">No previous analyses</div></div>
-          </div>
-        </section>
-      </div>
-    </div>
-  </main>
-
-  <div id="toast" class="toast-ui"></div>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
-  <script src="/ui/app.js"></script>
-</body>
+    <div id="toast" class="toast-ui"></div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    <script src="/ui/app.js"></script>
+    <script>
+      document.getElementById('logoutBtn')?.addEventListener('click', async () => {
+        try {
+          await fetch('/auth/logout', { method: 'POST' });
+          window.location.href = '/login';
+        } catch (e) {
+          console.error('Logout failed', e);
+        }
+      });
+    </script>
+  </body>
 </html>

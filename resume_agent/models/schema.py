@@ -33,6 +33,10 @@ class ResumeAnalysisResponse(BaseModel):
     intent_profile: IntentProfile
     leadership_analysis: LeadershipAnalysis
     compensation_emphasis_index: CompensationEmphasisIndex
+    candidate_profile: dict | None = Field(
+        default=None,
+        description="Contact, education, and other fields extracted from resume text",
+    )
 
 
 class JobRolePrediction(BaseModel):

@@ -11,10 +11,13 @@
   const steps = Array.from(document.querySelectorAll('.step'));
   const tabs = document.getElementById('tabs');
   const skillSearch = document.getElementById('skillSearch');
-  const outputEl = document.getElementById('output');
-  const noteEl = document.getElementById('note');
-  const copyBtn = document.getElementById('copyBtn');
-  const downloadBtn = document.getElementById('downloadBtn');
+  const initialResumeOutput = document.getElementById('initialResumeOutput');
+  const downloadCurrentPdfBtn = document.getElementById('downloadCurrentPdfBtn');
+  const downloadAllHistoryBtn = document.getElementById('downloadAllHistoryBtn');
+  const toggleProfileBtn = document.getElementById('toggleProfileBtn');
+  const downloadResumePdfBtn = document.getElementById('downloadResumePdfBtn');
+  const downloadBehavioralPdfBtn = document.getElementById('downloadBehavioralPdfBtn');
+  const downloadStressPdfBtn = document.getElementById('downloadStressPdfBtn');
   const clearHistoryBtn = document.getElementById('clearHistoryBtn');
   const historyList = document.getElementById('historyList');
   const themeToggle = document.getElementById('themeToggle');
@@ -41,6 +44,15 @@
   const eComp = document.getElementById('eComp');
   const cLead = document.getElementById('cLead');
   const cComp = document.getElementById('cComp');
+  const profileStatus = document.getElementById('profileStatus');
+  const pName = document.getElementById('pName');
+  const pEmail = document.getElementById('pEmail');
+  const pPhone = document.getElementById('pPhone');
+  const pLocation = document.getElementById('pLocation');
+  const pExperience = document.getElementById('pExperience');
+  const pLinks = document.getElementById('pLinks');
+  const pEducation = document.getElementById('pEducation');
+  const pCertifications = document.getElementById('pCertifications');
 
   // Workforce intelligence (3-agent pipeline)
   const runWorkforceBtn = document.getElementById('runWorkforceBtn');
@@ -72,6 +84,8 @@
     timer: null,
     history: [],
     fileName: '',
+    profile: null,
+    workforce: null,
   };
 
   function showToast(message, kind = 'ok') {
@@ -182,6 +196,130 @@
     target.innerHTML = items.map((x) => `<li>${x}</li>`).join('');
   }
 
+  function htmlEscape(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function formatProfileValue(value) {
+    if (Array.isArray(value)) return value.filter(Boolean).join(', ') || '-';
+    return value ? String(value) : '-';
+  }
+
+  /** DOM nodes for Experience / Links may be absent; avoid throwing on null. */
+  function setProfileField(el, text) {
+    if (el) el.textContent = text;
+  }
+
+  function renderProfileList(target, items) {
+    if (!target) return;
+    const list = Array.isArray(items) ? items.filter(Boolean) : [];
+    if (!list.length) {
+      target.textContent = '-';
+      return;
+    }
+    target.innerHTML = list.map((item) => `<span>${htmlEscape(item)}</span>`).join('');
+  }
+
+  function setProfileEmpty(status = 'Awaiting resume', errorDetail = null) {
+    state.profile = null;
+    if (errorDetail) {
+      profileStatus.textContent = `${status}: ${errorDetail}`;
+      profileStatus.className = 'profile-status profile-status-error';
+    } else {
+      profileStatus.textContent = status;
+      profileStatus.className = 'profile-status';
+    }
+    setProfileField(pName, '-');
+    setProfileField(pEmail, '-');
+    setProfileField(pPhone, '-');
+    setProfileField(pLocation, '-');
+    setProfileField(pExperience, '-');
+    setProfileField(pLinks, '-');
+    setProfileField(pEducation, '-');
+    setProfileField(pCertifications, '-');
+  }
+
+  function renderCandidateProfile(profile) {
+    state.profile = profile || null;
+    if (!profile) {
+      setProfileEmpty('Profile not detected');
+      return;
+    }
+
+    setProfileField(pName, formatProfileValue(profile.candidate_name));
+    setProfileField(pEmail, formatProfileValue(profile.email));
+    setProfileField(pPhone, formatProfileValue(profile.phone));
+    setProfileField(pLocation, formatProfileValue(profile.location));
+    setProfileField(pExperience, formatProfileValue(profile.experience));
+    setProfileField(pLinks, formatProfileValue(profile.links));
+    renderProfileList(pEducation, profile.education);
+    renderProfileList(pCertifications, profile.certifications);
+
+    const found = [
+      profile.candidate_name,
+      profile.email,
+      profile.phone,
+      ...(Array.isArray(profile.education) ? profile.education : []),
+    ].filter(Boolean).length;
+    profileStatus.textContent = found ? 'Detected' : 'Needs review';
+    profileStatus.className = found ? 'profile-status detected' : 'profile-status';
+
+    if (profile.candidate_name) {
+      const candidateInput = document.getElementById('candidateName');
+      if (candidateInput) candidateInput.value = profile.candidate_name;
+    }
+  }
+
+  async function extractProfileFromFile(file, quiet = false) {
+    if (!file || !isAllowedFile(file)) {
+      setProfileEmpty('Awaiting resume');
+      return null;
+    }
+
+    profileStatus.textContent = 'Detecting...';
+    profileStatus.className = 'profile-status';
+
+    try {
+      const profileFormData = new FormData();
+      profileFormData.append('file', file);
+      const profileRes = await fetch('/api/v1/resume/extract-profile', {
+        method: 'POST',
+        body: profileFormData,
+      });
+
+      const profileText = await profileRes.text();
+      const profileData = parseJson(profileText) || { detail: profileText };
+
+      if (!profileRes.ok) {
+        const detail = errorText(profileData, `HTTP ${profileRes.status}`);
+        setProfileEmpty('Profile extract failed', detail);
+        if (!quiet) {
+          showToast('Could not extract candidate profile', 'error');
+        }
+        return null;
+      }
+
+      const prof = profileData.profile;
+      renderCandidateProfile(prof);
+      if (!quiet && prof && prof.candidate_name) {
+        showToast(`Detected: ${prof.candidate_name}`, 'ok');
+      }
+      return prof || null;
+    } catch (err) {
+      const detail = err && err.message ? err.message : 'Network error';
+      setProfileEmpty('Profile extract failed', detail);
+      if (!quiet) {
+        showToast('Could not extract candidate profile', 'error');
+      }
+      return null;
+    }
+  }
+
   function setWorkforceEmpty() {
     wfRole.textContent = '-';
     wfRoleConf.textContent = '0%';
@@ -230,10 +368,13 @@
     if (wfIntent) wfIntent.textContent = intent.primary_intent || '-';
     if (wfLeadership) wfLeadership.textContent = toTwo(lead.score);
     if (wfComp) wfComp.textContent = toTwo(comp.score);
+
+    if (data.candidate_profile) {
+      renderCandidateProfile(data.candidate_profile);
+    }
   }
 
   function resetView() {
-    outputEl.textContent = '{\n  "message": "Upload a resume to see analysis output"\n}';
     mPrimary.textContent = '-';
     mSecondary.textContent = '-';
     mLead.textContent = '0.00';
@@ -253,11 +394,13 @@
 
     setStatus('Ready.', false);
     updateStep(0);
-    noteEl.textContent = '';
 
     state.current = null;
     state.technical = [];
     state.soft = [];
+    state.profile = null;
+    state.workforce = null;
+    setProfileEmpty();
 
     if (wfEmployeeSkills) wfEmployeeSkills.value = '';
     if (wfIntent) wfIntent.textContent = '-';
@@ -279,6 +422,722 @@
     } catch (_) {
       return null;
     }
+  }
+
+  function errorText(data, fallback) {
+    if (!data || data.detail == null) return fallback;
+    return typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail);
+  }
+
+  function cleanPdfText(value) {
+    if (value == null || value === '') return '-';
+    if (Array.isArray(value)) return value.length ? value.map(cleanPdfText).join(', ') : 'None';
+    if (typeof value === 'object') return cleanPdfText(JSON.stringify(value));
+    return String(value)
+      .normalize('NFKD')
+      .replace(/[^\x20-\x7E\r\n]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim() || '-';
+  }
+
+  function escapePdfText(value) {
+    return cleanPdfText(value)
+      .replace(/\\/g, '\\\\')
+      .replace(/\(/g, '\\(')
+      .replace(/\)/g, '\\)');
+  }
+
+  const PDF_COLORS = {
+    accent: [5, 150, 105],      // Emerald-600
+    accentDark: [4, 120, 87],   // Emerald-700
+    ink: [15, 23, 42],          // Slate-900 
+    muted: [100, 116, 139],     // Slate-500
+    line: [226, 232, 240],      // Slate-200
+    soft: [241, 245, 249],      // Slate-100
+    surface: [255, 255, 255],   // White
+    light: [248, 250, 252],     // Slate-50
+    danger: [220, 38, 38],      // Red-600
+    warning: [217, 119, 6],     // Amber-600
+    ok: [16, 185, 129],         // Emerald-500
+    blue: [37, 99, 235],        // Blue-600
+    rose: [225, 29, 72],        // Rose-600
+  };
+
+  function addWrappedLine(lines, text, size = 10, spaceBefore = 0, options = {}) {
+    const availableWidth = 507;
+    const maxChars = Math.max(24, Math.floor(availableWidth / (size * 0.48)));
+    const words = cleanPdfText(text).split(/\s+/);
+    let current = '';
+    let pendingSpace = spaceBefore;
+
+    words.forEach((word) => {
+      const chunks = [];
+      for (let i = 0; i < word.length; i += maxChars) {
+        chunks.push(word.slice(i, i + maxChars));
+      }
+      chunks.forEach((chunk) => {
+        const next = current ? `${current} ${chunk}` : chunk;
+        if (next.length > maxChars && current) {
+          lines.push({ text: current, size, spaceBefore: pendingSpace, height: size * 1.5, ...options });
+          pendingSpace = 2;
+          current = chunk;
+        } else {
+          current = next;
+        }
+      });
+    });
+
+    if (current) {
+      lines.push({ text: current, size, spaceBefore: pendingSpace, height: size * 1.5, ...options });
+    }
+  }
+
+  function addSection(lines, title) {
+    addWrappedLine(lines, title, 14, 16, { font: 'F2', color: PDF_COLORS.accentDark });
+    lines.push({ type: 'divider', height: 10, spaceBefore: 4 });
+  }
+
+  function addKeyValue(lines, label, value) {
+    addWrappedLine(lines, `${label}: ${cleanPdfText(value)}`, 10, 4);
+  }
+
+  function addList(lines, label, items) {
+    if (label) {
+      addWrappedLine(lines, label, 11, 8, { font: 'F2', color: PDF_COLORS.ink });
+    }
+    const list = Array.isArray(items) ? items.filter(Boolean) : (items ? [items] : []);
+    if (!list.length) {
+      addWrappedLine(lines, '  None available', 9, 2, { color: PDF_COLORS.muted });
+      return;
+    }
+    let bullet = '•';
+    if (label.toLowerCase().includes('strength') || label.toLowerCase().includes('synerg')) bullet = '+';
+    if (label.toLowerCase().includes('risk') || label.toLowerCase().includes('conflict')) bullet = '!';
+    if (label.toLowerCase().includes('recommend')) bullet = '>';
+
+    list.forEach((item) => addWrappedLine(lines, `  ${bullet}   ${cleanPdfText(item)}`, 10, 4));
+  }
+
+  function addDivider(lines) {
+    lines.push({ type: 'divider', height: 10, spaceBefore: 4 });
+  }
+
+  function addReportHeader(lines, title, subtitle) {
+    lines.push({
+      type: 'reportHeader',
+      title,
+      subtitle: subtitle || `Generated: ${new Date().toLocaleString()}`,
+      height: 100, // Taller premium header
+      spaceBefore: 0,
+    });
+  }
+
+  function addTable(lines, title, items) {
+    const validItems = items.filter(i => i && i.label && i.value);
+    if (!validItems.length) return;
+    if (title) {
+      addWrappedLine(lines, title, 12, 14, { font: 'F2', color: PDF_COLORS.ink });
+    }
+    lines.push({
+      type: 'tableBox',
+      items: validItems,
+      height: validItems.length * 24 + 16,
+      spaceBefore: 6,
+    });
+  }
+
+  function addScoreCards(lines, cards) {
+    const visible = (cards || []).filter(Boolean);
+    if (!visible.length) return;
+    const rows = Math.ceil(visible.length / 4);
+    const cardH = 72;
+    lines.push({
+      type: 'scoreCards',
+      cards: visible,
+      height: rows * cardH + Math.max(0, rows - 1) * 12,
+      spaceBefore: 12,
+    });
+  }
+
+  function addBarChart(lines, title, bars) {
+    const visible = (bars || []).filter((bar) => bar && bar.label);
+    if (!visible.length) return;
+    addWrappedLine(lines, title, 12, 14, { font: 'F2', color: PDF_COLORS.ink });
+    lines.push({
+      type: 'barChart',
+      bars: visible,
+      height: 38 + visible.length * 26,
+      spaceBefore: 6,
+    });
+  }
+
+  function addTrendChart(lines, title, points) {
+    const visible = (points || []).filter(Boolean);
+    if (!visible.length) return;
+    addWrappedLine(lines, title, 12, 14, { font: 'F2', color: PDF_COLORS.ink });
+    lines.push({
+      type: 'trendChart',
+      points: visible.slice(-12),
+      height: 200,
+      spaceBefore: 6,
+    });
+  }
+
+  function scoreColor(value) {
+    const n = Number(value) || 0;
+    if (n >= 70) return PDF_COLORS.ok;
+    if (n >= 50) return PDF_COLORS.warning;
+    return PDF_COLORS.danger;
+  }
+
+  function buildPdfBlob(lines) {
+    const encoder = new TextEncoder();
+    const pageWidth = 595.28;
+    const pageHeight = 841.89;
+    const margin = 44;
+    const bottom = 44;
+    const lineHeight = 14;
+    const pages = [[]];
+    let y = pageHeight - margin;
+    const contentWidth = pageWidth - margin * 2;
+
+    function rgb(color) {
+      const c = color || PDF_COLORS.ink;
+      return `${(c[0] / 255).toFixed(3)} ${(c[1] / 255).toFixed(3)} ${(c[2] / 255).toFixed(3)}`;
+    }
+
+    function textCommand(text, x, textY, size = 10, font = 'F1', color = PDF_COLORS.ink) {
+      return `${rgb(color)} rg BT /${font} ${size} Tf 1 0 0 1 ${x.toFixed(2)} ${textY.toFixed(2)} Tm (${escapePdfText(text)}) Tj ET`;
+    }
+
+    function rectCommand(x, rectY, width, height, fill, stroke) {
+      const parts = [];
+      if (fill) parts.push(`${rgb(fill)} rg ${x.toFixed(2)} ${rectY.toFixed(2)} ${width.toFixed(2)} ${height.toFixed(2)} re f`);
+      if (stroke) parts.push(`${rgb(stroke)} RG ${x.toFixed(2)} ${rectY.toFixed(2)} ${width.toFixed(2)} ${height.toFixed(2)} re S`);
+      return parts.join('\n');
+    }
+
+    function lineCommand(x1, y1, x2, y2, color = PDF_COLORS.line, width = 1) {
+      return `${rgb(color)} RG ${width.toFixed(2)} w ${x1.toFixed(2)} ${y1.toFixed(2)} m ${x2.toFixed(2)} ${y2.toFixed(2)} l S`;
+    }
+
+    let cachedPdfLogoLight = null;
+    let cachedPdfLogoDark = null;
+    let cachedPdfLogoW = 0;
+    let cachedPdfLogoH = 0;
+
+    function loadLogosForPdf() {
+      if (cachedPdfLogoLight) return;
+      const img = document.getElementById('navbar-logo');
+      if (!img || !img.complete || img.naturalWidth === 0) return;
+      try {
+        const drawH = 50;
+        const drawW = Math.round(drawH * (img.naturalWidth / img.naturalHeight));
+        cachedPdfLogoW = drawW;
+        cachedPdfLogoH = drawH;
+        
+        // Use 4x resolution to ensure crisp text rendering in PDF
+        const scale = 4;
+        const c = document.createElement('canvas');
+        c.width = drawW * scale; 
+        c.height = drawH * scale;
+        const ctx = c.getContext('2d');
+        
+        ctx.fillStyle = `rgb(${PDF_COLORS.accent[0]}, ${PDF_COLORS.accent[1]}, ${PDF_COLORS.accent[2]})`;
+        ctx.fillRect(0, 0, c.width, c.height);
+        ctx.drawImage(img, 0, 0, c.width, c.height);
+        let dr = atob(c.toDataURL('image/jpeg', 0.9).split(',')[1]);
+        let hex = ''; for(let i=0;i<dr.length;i++) hex+=dr.charCodeAt(i).toString(16).padStart(2,'0');
+        cachedPdfLogoLight = hex + '>';
+
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, c.width, c.height);
+        ctx.drawImage(img, 0, 0, c.width, c.height);
+        dr = atob(c.toDataURL('image/jpeg', 0.9).split(',')[1]);
+        hex = ''; for(let i=0;i<dr.length;i++) hex+=dr.charCodeAt(i).toString(16).padStart(2,'0');
+        cachedPdfLogoDark = hex + '>';
+      } catch(e) {
+        console.warn('Could not encode logo for PDF:', e);
+      }
+    }
+
+    function renderReportHeader(item, topY) {
+      const lowerY = topY - item.height;
+      const headerLogo = cachedPdfLogoLight ? `q ${cachedPdfLogoW} 0 0 ${cachedPdfLogoH} ${margin + 20} ${topY - 25 - cachedPdfLogoH/2} cm /LogoLight Do Q` : '';
+      const textX = cachedPdfLogoLight ? margin + 30 + cachedPdfLogoW : margin + 24;
+      return [
+        rectCommand(margin, lowerY, contentWidth, item.height, PDF_COLORS.accent, null),
+        headerLogo,
+        textCommand('Karmic Intelligence Platform', textX, topY - 32, 12, 'F2', PDF_COLORS.surface),
+        textCommand(item.title, textX, topY - 58, 22, 'F2', PDF_COLORS.surface),
+        textCommand(item.subtitle, textX, topY - 78, 10, 'F1', PDF_COLORS.surface),
+        rectCommand(margin + contentWidth - 110, topY - 42, 86, 20, PDF_COLORS.light, null),
+        textCommand('CONFIDENTIAL', margin + contentWidth - 100, topY - 37, 9, 'F2', PDF_COLORS.danger)
+      ].join('\n');
+    }
+
+    function renderTableBox(item, topY) {
+      const items = item.items || [];
+      const boxY = topY - item.height;
+      const rowH = 24;
+      const labelW = 160;
+      
+      const parts = [
+        rectCommand(margin, boxY, contentWidth, item.height, PDF_COLORS.surface, PDF_COLORS.line)
+      ];
+      
+      items.forEach((row, idx) => {
+        const rowY = topY - 12 - idx * rowH;
+        if (idx % 2 === 0) {
+          parts.push(rectCommand(margin + 1, rowY - 16, contentWidth - 2, rowH, PDF_COLORS.light, null));
+        }
+        parts.push(textCommand(row.label, margin + 12, rowY - 10, 9, 'F2', PDF_COLORS.muted));
+        parts.push(textCommand(cleanPdfText(row.value).substring(0, 70), margin + labelW, rowY - 10, 9, 'F1', PDF_COLORS.ink));
+        if (idx < items.length - 1) {
+          parts.push(lineCommand(margin, rowY - 16, margin + contentWidth, rowY - 16, PDF_COLORS.line, 0.5));
+        }
+      });
+      return parts.join('\n');
+    }
+
+    function renderScoreCards(item, topY) {
+      const cards = item.cards || [];
+      const cols = Math.min(4, Math.max(1, cards.length));
+      const gap = 12;
+      const cardH = 72;
+      const cardW = (contentWidth - gap * (cols - 1)) / cols;
+      return cards.map((card, idx) => {
+        const row = Math.floor(idx / cols);
+        const col = idx % cols;
+        const x = margin + col * (cardW + gap);
+        const cardTop = topY - row * (cardH + gap);
+        const cardY = cardTop - cardH;
+        const color = card.color || PDF_COLORS.accent;
+        return [
+          rectCommand(x, cardY, cardW, cardH, PDF_COLORS.surface, PDF_COLORS.line),
+          rectCommand(x, cardTop - 6, cardW, 6, color, null),
+          textCommand(card.label, x + 16, cardTop - 28, 9, 'F2', PDF_COLORS.ink),
+          textCommand(card.value, x + 16, cardTop - 52, 18, 'F2', color),
+        ].join('\n');
+      }).join('\n');
+    }
+
+    function renderBarChart(item, topY) {
+      const bars = item.bars || [];
+      const chartY = topY - item.height;
+      const labelX = margin + 16;
+      const barX = margin + 180;
+      const barW = contentWidth - 260;
+      const valueX = margin + contentWidth - 48;
+      const rowH = 26;
+      const parts = [
+        rectCommand(margin, chartY, contentWidth, item.height, PDF_COLORS.surface, PDF_COLORS.line),
+      ];
+
+      bars.forEach((bar, idx) => {
+        const yRow = topY - 26 - idx * rowH;
+        const max = Number(bar.max) || 100;
+        const value = Math.max(0, Math.min(max, Number(bar.value) || 0));
+        const pct = max ? value / max : 0;
+        const color = bar.color || PDF_COLORS.accent;
+        parts.push(textCommand(bar.label, labelX, yRow, 9, 'F1', PDF_COLORS.ink));
+        parts.push(rectCommand(barX, yRow - 2, barW, 6, PDF_COLORS.soft, null));
+        parts.push(rectCommand(barX, yRow - 2, barW * pct, 6, color, null));
+        parts.push(textCommand(bar.display || `${Math.round(value)}%`, valueX, yRow, 9, 'F2', PDF_COLORS.ink));
+      });
+      return parts.join('\n');
+    }
+
+    function renderTrendChart(item, topY) {
+      const points = item.points || [];
+      const chartY = topY - item.height;
+      const plotX = margin + 42;
+      const plotY = chartY + 44;
+      const plotW = contentWidth - 78;
+      const plotH = item.height - 84;
+      const count = Math.max(1, points.length);
+      const groupW = plotW / count;
+      const barW = Math.min(18, groupW / 3);
+      const parts = [
+        rectCommand(margin, chartY, contentWidth, item.height, PDF_COLORS.surface, PDF_COLORS.line),
+        textCommand('100', margin + 14, plotY + plotH - 4, 7, 'F1', PDF_COLORS.muted),
+        textCommand('50', margin + 19, plotY + plotH / 2 - 4, 7, 'F1', PDF_COLORS.muted),
+        textCommand('0', margin + 24, plotY - 4, 7, 'F1', PDF_COLORS.muted),
+        lineCommand(plotX, plotY, plotX + plotW, plotY, PDF_COLORS.line, 0.5),
+        lineCommand(plotX, plotY + plotH / 2, plotX + plotW, plotY + plotH / 2, PDF_COLORS.line, 0.3),
+        lineCommand(plotX, plotY + plotH, plotX + plotW, plotY + plotH, PDF_COLORS.line, 0.3),
+        textCommand('Workload', margin + 364, topY - 20, 8, 'F2', PDF_COLORS.accent),
+        textCommand('Risk Limit', margin + 432, topY - 20, 8, 'F2', PDF_COLORS.danger),
+      ];
+
+      points.forEach((point, idx) => {
+        const x = plotX + idx * groupW + groupW / 2 - barW;
+        const workload = Math.max(0, Math.min(100, Number(point.workload_score) || 0));
+        const riskMap = { NORMAL: 30, HIGH: 70, CRITICAL: 100 };
+        const risk = riskMap[point.risk_level] || 30;
+        const workloadH = (workload / 100) * plotH;
+        const riskH = (risk / 100) * plotH;
+        parts.push(rectCommand(x, plotY, barW, workloadH, PDF_COLORS.accent, null));
+        parts.push(rectCommand(x + barW + 3, plotY, barW, riskH, PDF_COLORS.danger, null));
+        parts.push(textCommand(String(idx + 1), x + 1, chartY + 20, 7, 'F1', PDF_COLORS.muted));
+      });
+      return parts.join('\n');
+    }
+
+    function renderLineItem(item, topY) {
+      return textCommand(item.text, margin, topY, item.size || 10, item.font || 'F1', item.color || PDF_COLORS.ink);
+    }
+
+    lines.forEach((line) => {
+      const size = line.size || 10;
+      const spaceBefore = line.spaceBefore || 0;
+      const height = line.height || lineHeight;
+      if (line.type === 'pageBreak') {
+        pages.push([]);
+        y = pageHeight - margin;
+        return;
+      }
+      if (y - spaceBefore - height < bottom) {
+        pages.push([]);
+        y = pageHeight - margin;
+      }
+      y -= spaceBefore;
+      if (line.type === 'reportHeader') {
+        pages[pages.length - 1].push(renderReportHeader(line, y));
+      } else if (line.type === 'divider') {
+        pages[pages.length - 1].push(lineCommand(margin, y - 2, pageWidth - margin, y - 2, PDF_COLORS.line, 0.8));
+      } else if (line.type === 'scoreCards') {
+        pages[pages.length - 1].push(renderScoreCards(line, y));
+      } else if (line.type === 'barChart') {
+        pages[pages.length - 1].push(renderBarChart(line, y));
+      } else if (line.type === 'trendChart') {
+        pages[pages.length - 1].push(renderTrendChart(line, y));
+      } else if (line.type === 'tableBox') {
+        pages[pages.length - 1].push(renderTableBox(line, y));
+      } else {
+        pages[pages.length - 1].push(renderLineItem(line, y));
+      }
+      y -= height;
+    });
+
+    const objects = [];
+    const fontBoldObj = 4 + pages.length * 2;
+    
+    let resourcesStr = `<< /Font << /F1 3 0 R /F2 ${fontBoldObj} 0 R >> >>`;
+    let lightLogoObj = 0, darkLogoObj = 0;
+    
+    if (cachedPdfLogoLight && cachedPdfLogoDark) {
+        lightLogoObj = fontBoldObj + 1;
+        darkLogoObj = fontBoldObj + 2;
+        resourcesStr = `<< /Font << /F1 3 0 R /F2 ${fontBoldObj} 0 R >> /XObject << /LogoLight ${lightLogoObj} 0 R /LogoDark ${darkLogoObj} 0 R >> >>`;
+    }
+
+    const kids = pages.map((_, idx) => `${(darkLogoObj || fontBoldObj) + 1 + idx * 2} 0 R`).join(' ');
+    objects[1] = '<< /Type /Catalog /Pages 2 0 R >>';
+    objects[2] = `<< /Type /Pages /Kids [${kids}] /Count ${pages.length} >>`;
+    objects[3] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>';
+    objects[fontBoldObj] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>';
+    
+    if (lightLogoObj) {
+        objects[lightLogoObj] = `<< /Type /XObject /Subtype /Image /Width ${cachedPdfLogoW} /Height ${cachedPdfLogoH} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter [/ASCIIHexDecode /DCTDecode] /Length ${cachedPdfLogoLight.length} >> stream\n${cachedPdfLogoLight}\nendstream`;
+        objects[darkLogoObj] = `<< /Type /XObject /Subtype /Image /Width ${cachedPdfLogoW} /Height ${cachedPdfLogoH} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter [/ASCIIHexDecode /DCTDecode] /Length ${cachedPdfLogoDark.length} >> stream\n${cachedPdfLogoDark}\nendstream`;
+    }
+
+    pages.forEach((page, idx) => {
+      const pageObj = (darkLogoObj || fontBoldObj) + 1 + idx * 2;
+      const streamObj = pageObj + 1;
+      
+      const footerH = 14;
+      const footerW = Math.round(footerH * (cachedPdfLogoW/cachedPdfLogoH));
+      const footerLogo = darkLogoObj ? `q ${footerW} 0 0 ${footerH} ${margin} 20 cm /LogoDark Do Q` : '';
+      
+      const footer = [
+        lineCommand(margin, 36, pageWidth - margin, 36, PDF_COLORS.line, 0.5),
+        footerLogo,
+        textCommand('Karmic Intelligence Platform • Proprietary & Confidential', margin + (darkLogoObj ? footerW + 8 : 0), 24, 8, 'F1', PDF_COLORS.muted),
+        textCommand(`Page ${idx + 1} of ${pages.length}`, pageWidth - margin - 50, 24, 8, 'F1', PDF_COLORS.muted),
+      ].join('\n');
+      const stream = [...page, footer].join('\n');
+      objects[pageObj] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources ${resourcesStr} /Contents ${streamObj} 0 R >>`;
+      objects[streamObj] = `<< /Length ${encoder.encode(stream).length} >>\nstream\n${stream}\nendstream`;
+    });
+
+    let pdf = '%PDF-1.4\n';
+    const offsets = [0];
+    for (let i = 1; i < objects.length; i += 1) {
+      offsets[i] = encoder.encode(pdf).length;
+      pdf += `${i} 0 obj\n${objects[i]}\nendobj\n`;
+    }
+    const xrefOffset = encoder.encode(pdf).length;
+    pdf += `xref\n0 ${objects.length}\n`;
+    pdf += '0000000000 65535 f \n';
+    for (let i = 1; i < objects.length; i += 1) {
+      pdf += `${String(offsets[i]).padStart(10, '0')} 00000 n \n`;
+    }
+    pdf += `trailer\n<< /Size ${objects.length} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+    return new Blob([pdf], { type: 'application/pdf' });
+  }
+
+  function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadReportPdf(filename, title, buildContent) {
+    loadLogosForPdf();
+    const lines = [];
+    addReportHeader(lines, title);
+    buildContent(lines);
+    downloadBlob(buildPdfBlob(lines), filename);
+  }
+
+  function appendResumeReport(lines, data, title = 'Resume Analysis', profile = null) {
+    if (!data) return false;
+    const skills = data.skills || {};
+    const intent = data.intent_profile || {};
+    const lead = data.leadership_analysis || {};
+    const comp = data.compensation_emphasis_index || {};
+
+    addSection(lines, title);
+    
+    addScoreCards(lines, [
+      { label: 'Leadership Score', value: `${toTwo(lead.score)}`, color: scoreColor(lead.score * 10) },
+      { label: 'Compensation Index', value: `${toTwo(comp.score)}`, color: scoreColor(comp.score) },
+      { label: 'Skills Confidence', value: skills.confidence == null ? '-' : fmtPct01(skills.confidence), color: PDF_COLORS.blue },
+      { label: 'Primary Intent', value: intent.primary_intent || '-', color: PDF_COLORS.accentDark }
+    ]);
+
+    if (profile) {
+      addTable(lines, 'Candidate Details', [
+        { label: 'Candidate Name', value: profile.candidate_name },
+        { label: 'Email', value: profile.email },
+        { label: 'Phone', value: profile.phone },
+        { label: 'Location', value: profile.location },
+        { label: 'Total Experience', value: profile.experience }
+      ]);
+      addList(lines, 'Education', profile.education);
+      addList(lines, 'Links', profile.links);
+      addList(lines, 'Certifications / Other', profile.certifications);
+    }
+    
+    addTable(lines, 'Analysis Output', [
+      { label: 'Primary Intent', value: intent.primary_intent },
+      { label: 'Secondary Intent', value: intent.secondary_intent },
+      { label: 'Leadership Confidence', value: lead.confidence == null ? '-' : fmtPct01(lead.confidence) },
+      { label: 'Compensation Confidence', value: comp.confidence == null ? '-' : fmtPct01(comp.confidence) }
+    ]);
+
+    addList(lines, 'Technical Skills', skills.technical);
+    addList(lines, 'Soft Skills', skills.soft);
+    addList(lines, 'Leadership Evidence', lead.evidence);
+    addList(lines, 'Compensation Evidence', comp.evidence);
+    addList(lines, 'Stress / Workload Indicators', lead.stress_indicators);
+    return true;
+  }
+
+  function appendWorkforceReport(lines, data, title = 'Workforce Intelligence') {
+    if (!data) return false;
+    const job = data.job_role || {};
+    const project = data.project_skill_match || {};
+    const team = data.team_compatibility || {};
+
+    addSection(lines, title);
+    
+    addTable(lines, 'Workforce Intelligence Summary', [
+      { label: 'Employee', value: data.employee_name || state.fileName || '-' },
+      { label: 'Project', value: data.project_name || '-' },
+      { label: 'Predicted Job Role', value: job.role },
+      { label: 'Job Role Confidence', value: job.confidence == null ? '-' : fmtPct01(job.confidence) },
+      { label: 'Project Skill Match', value: project.match_score == null ? '-' : fmtPct01(project.match_score) },
+      { label: 'Team Compatibility', value: team.overall_score == null ? '-' : fmtPct01(team.overall_score) },
+      { label: 'Skill Overlap', value: team.skill_overlap_score == null ? '-' : fmtPct01(team.skill_overlap_score) },
+      { label: 'Behavioral Alignment', value: team.behavioral_alignment_score == null ? '-' : fmtPct01(team.behavioral_alignment_score) }
+    ]);
+    
+    addList(lines, 'Missing Skills', project.missing_skills);
+    addList(lines, 'Compatibility Notes', team.notes);
+    return true;
+  }
+
+  function appendBehavioralReport(lines, data, title = 'Behavioral Analysis') {
+    if (!data) return false;
+    const traits = data.personality_traits || {};
+    const communication = data.communication || {};
+    const team = data.team_compatibility || {};
+    const profile = data.personality_profile || {};
+    const recommendation = data.recommendation_data || {};
+    const fitScore = data.behavioral_fit_score || data.final_score || 0;
+    const roleFitScore = data.role_fit_score || 0;
+    const teamCompatScore = team.compatibility_score || 0;
+    const communicationScore = communication.score || 0;
+
+    addSection(lines, title);
+    addScoreCards(lines, [
+      { label: 'Behavioral Fit', value: `${fitScore}/100`, color: scoreColor(fitScore) },
+      { label: 'Role Fit', value: `${roleFitScore}/100`, color: scoreColor(roleFitScore) },
+      { label: 'Team Compatibility', value: `${teamCompatScore}/100`, color: scoreColor(teamCompatScore) },
+      { label: 'Communication Score', value: `${communicationScore}/100`, color: scoreColor(communicationScore) },
+    ]);
+    
+    addTable(lines, 'Candidate Overview', [
+      { label: 'Candidate Name', value: data.candidate_name },
+      { label: 'Target Job Role', value: data.job_role },
+      { label: 'Personality Type', value: data.personality_type },
+      { label: 'Personality Description', value: profile.description },
+      { label: 'Team Fit Assessment', value: data.team_fit },
+      { label: 'Team Balance Focus', value: team.team_balance },
+      { label: 'Communication Style', value: communication.sentiment },
+      { label: 'Best Role Recommendation', value: recommendation.best_role },
+      { label: 'Recommendation Factor', value: recommendation.confidence == null ? '-' : `${recommendation.confidence}%` }
+    ]);
+    
+    if (recommendation.reasoning) {
+        addWrappedLine(lines, `Recommendation Reasoning: ${cleanPdfText(recommendation.reasoning)}`, 10, 4);
+    }
+    
+    addBarChart(lines, 'OCEAN Personality Traits', [
+      { label: 'Openness', value: traits.openness || 0, color: PDF_COLORS.accent },
+      { label: 'Conscientiousness', value: traits.conscientiousness || 0, color: PDF_COLORS.blue },
+      { label: 'Extraversion', value: traits.extraversion || 0, color: PDF_COLORS.warning },
+      { label: 'Agreeableness', value: traits.agreeableness || 0, color: PDF_COLORS.ok },
+      { label: 'Neuroticism', value: traits.neuroticism || 0, color: PDF_COLORS.rose },
+    ]);
+
+    const roleCompatibility = Object.entries(data.role_compatibility || {})
+      .sort((a, b) => Number(b[1]) - Number(a[1]))
+      .slice(0, 5)
+      .map(([label, value]) => ({ label, value: Number(value) || 0, color: scoreColor(value) }));
+    addBarChart(lines, 'Top Role Compatibility Scores', roleCompatibility);
+
+    addList(lines, 'Top Recommended Roles', data.role_recommendations);
+    addList(lines, 'Identified Risk Flags', data.risk_flags);
+    addList(lines, 'Team Synergies Identified', team.synergies);
+    addList(lines, 'Potential Team Conflicts', team.potential_conflicts);
+    addList(lines, 'Actionable Team Recommendations', team.recommendations);
+    addList(lines, 'Core Quality Strengths', profile.dynamic_strengths || profile.strengths);
+    addList(lines, 'Identified Development Areas', profile.challenges || profile.development_areas);
+    
+    lines.push({ type: 'divider', height: 10, spaceBefore: 6 });
+    if (data.summary) {
+        addWrappedLine(lines, `Executive Summary: ${cleanPdfText(data.summary)}`, 10, 4);
+    } else {
+        addWrappedLine(lines, `Executive Summary: ${cleanPdfText(document.getElementById('bSummary')?.textContent)}`, 10, 4);
+    }
+    
+    return true;
+  }
+
+  function appendStressReport(lines, data, title = 'Stress / Workload Analysis') {
+    if (!data) return false;
+    const input = data.input || data.employee_data || {};
+    const workloadScore = Number(data.workload_score) || 0;
+    const meetingLoadScore = Number(data.meeting_load_score) || 0;
+    const taskCompletionScore = Number(data.task_completion_score) || 0;
+    const stressIndicatorPct = data.stress_indicator == null ? 0 : Math.round(Number(data.stress_indicator) * 100);
+    const riskMap = { NORMAL: 30, HIGH: 70, CRITICAL: 100 };
+    const riskScore = riskMap[data.risk_level] || 30;
+
+    addSection(lines, title);
+    addScoreCards(lines, [
+      { label: 'Stress Level', value: data.stress_level || '-', color: data.stress_level === 'High' ? PDF_COLORS.danger : data.stress_level === 'Medium' ? PDF_COLORS.warning : PDF_COLORS.ok },
+      { label: 'Risk Level', value: data.risk_level || '-', color: scoreColor(riskScore) },
+      { label: 'Workload', value: `${workloadScore.toFixed(1)}/100`, color: scoreColor(workloadScore) },
+      { label: 'Task Completion', value: `${taskCompletionScore.toFixed(1)}%`, color: scoreColor(taskCompletionScore) },
+    ]);
+    addBarChart(lines, 'Stress / Workload Graph', [
+      { label: 'Workload score', value: workloadScore, display: `${workloadScore.toFixed(1)}/100`, color: scoreColor(workloadScore) },
+      { label: 'Meeting load score', value: meetingLoadScore, display: `${meetingLoadScore.toFixed(1)}/100`, color: scoreColor(meetingLoadScore) },
+      { label: 'Task completion', value: taskCompletionScore, display: `${taskCompletionScore.toFixed(1)}%`, color: scoreColor(taskCompletionScore) },
+      { label: 'Stress indicator', value: stressIndicatorPct, display: `${stressIndicatorPct}%`, color: scoreColor(stressIndicatorPct) },
+      { label: 'Risk level', value: riskScore, display: `${data.risk_level || '-'}`, color: scoreColor(riskScore) },
+    ]);
+    addTable(lines, 'Stress Profile Analysis', [
+      { label: 'Status assessment', value: data.status },
+      { label: 'Calculated Risk Limit', value: data.risk_level },
+      { label: 'Stress Severity', value: data.stress_level },
+      { label: 'Risk Factor Confidence', value: data.confidence == null ? '-' : `${Math.round(Number(data.confidence) * 100)}%` },
+      { label: 'Stress Indicator', value: data.stress_indicator == null ? '-' : data.stress_indicator },
+      { label: 'Workload Efficiency', value: data.workload_score == null ? '-' : `${workloadScore.toFixed(1)}/100` },
+      { label: 'Meeting Bandwidth', value: data.meeting_load_score == null ? '-' : `${meetingLoadScore.toFixed(1)}/100` },
+      { label: 'Delivery Commitment', value: data.task_completion_score == null ? '-' : `${taskCompletionScore.toFixed(1)}%` },
+    ]);
+    
+    addTable(lines, 'Employee Workload Input', [
+      { label: 'Total Tasks Assigned', value: input.tasks_assigned },
+      { label: 'Total Tasks Completed', value: input.tasks_completed },
+      { label: 'Overdue / Blocked Tasks', value: input.overdue_tasks },
+      { label: 'Working Hours Per Day', value: input.working_hours_per_day },
+      { label: 'Live Meetings Per Day', value: input.meetings_per_day },
+      { label: 'Total Meeting Hours', value: input.meeting_hours },
+      { label: 'Weekend Work Logged', value: input.weekend_work === 1 ? 'Yes' : input.weekend_work === 0 ? 'No' : '-' },
+    ]);
+    
+    addList(lines, 'Calculated Insights', data.insights);
+    addList(lines, 'Actionable Recommendations', data.recommendations);
+    
+    if (data.future_risk) {
+        lines.push({ type: 'divider', height: 10, spaceBefore: 6 });
+        addWrappedLine(lines, `Future Risk Prognosis: ${data.future_risk}`, 10, 4, { color: riskScore >= 70 ? PDF_COLORS.danger : PDF_COLORS.ink });
+    }
+    return true;
+  }
+
+  function appendHistorySummary(lines) {
+    if (state.history.length) {
+      addSection(lines, 'Recent Resume Analyses');
+      state.history.forEach((entry, idx) => {
+        appendResumeReport(lines, entry.payload, `Saved Resume Analysis ${idx + 1} - ${entry.file} (${entry.at})`);
+      });
+    }
+
+    if (candidateHistory.length) {
+      addSection(lines, 'Candidate Behavioral History');
+      candidateHistory.slice(0, 15).forEach((entry, idx) => {
+        addKeyValue(lines, `Candidate ${idx + 1}`, `${entry.candidate_name} | ${entry.job_role} | Behavioral fit: ${entry.behavioral_fit_score}/100 | ${entry.timestamp}`);
+      });
+    }
+  }
+
+  function buildCurrentCandidateReport(lines) {
+    let added = false;
+    added = appendResumeReport(lines, state.current, 'Current Resume Analysis', state.profile) || added;
+    added = appendWorkforceReport(lines, state.workforce, 'Current Workforce Intelligence') || added;
+    added = appendBehavioralReport(lines, currentAnalysis, 'Current Behavioral Analysis') || added;
+
+    if (stressAnalysisHistory.length) {
+      addTrendChart(lines, 'Recent Stress Trend Graph', stressAnalysisHistory.slice(-5));
+      appendStressReport(lines, stressAnalysisHistory[0], 'Current Stress & Workload Analysis');
+      added = true;
+    }
+    return added;
+  }
+
+  function buildAllReports(lines) {
+    let added = false;
+    added = appendResumeReport(lines, state.current, 'Current Resume Analysis', state.profile) || added;
+    added = appendWorkforceReport(lines, state.workforce, 'Current Workforce Intelligence') || added;
+    added = appendBehavioralReport(lines, currentAnalysis, 'Current Behavioral Analysis') || added;
+
+    if (stressAnalysisHistory.length) {
+      addTrendChart(lines, 'Overall Stress Trend Graph', stressAnalysisHistory);
+      stressAnalysisHistory.forEach((entry, idx) => {
+        appendStressReport(lines, entry, `Stress / Workload Analysis ${idx + 1}`);
+      });
+      added = true;
+    }
+
+    if (state.history.length || candidateHistory.length) {
+      appendHistorySummary(lines);
+      added = true;
+    }
+
+    return added;
   }
 
   function switchTab(tab) {
@@ -339,18 +1198,6 @@
     `).join('');
   }
 
-  function downloadJson() {
-    const blob = new Blob([outputEl.textContent || '{}'], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'resume-analysis.json';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  }
-
   ['dragenter', 'dragover'].forEach((name) => {
     dropzone.addEventListener(name, (e) => {
       e.preventDefault();
@@ -372,9 +1219,14 @@
     if (!files || !files.length) return;
     fileInput.files = files;
     updateFileMeta();
+    extractProfileFromFile(fileInput.files[0], true);
   });
 
-  fileInput.addEventListener('change', updateFileMeta);
+  fileInput.addEventListener('change', () => {
+    updateFileMeta();
+    const file = fileInput.files && fileInput.files[0];
+    extractProfileFromFile(file, true);
+  });
 
   tabs.addEventListener('click', (e) => {
     const btn = e.target.closest('.tab-btn');
@@ -399,23 +1251,6 @@
     applyTheme(current === 'dark' ? 'light' : 'dark');
   });
 
-  copyBtn.addEventListener('click', async () => {
-    try {
-      await navigator.clipboard.writeText(outputEl.textContent || '{}');
-      noteEl.textContent = 'Copied JSON to clipboard.';
-      showToast('Copied JSON', 'ok');
-    } catch (_) {
-      noteEl.textContent = 'Clipboard access failed.';
-      showToast('Clipboard failed', 'error');
-    }
-  });
-
-  downloadBtn.addEventListener('click', () => {
-    downloadJson();
-    noteEl.textContent = 'Downloaded JSON.';
-    showToast('Downloaded', 'ok');
-  });
-
   clearHistoryBtn.addEventListener('click', () => {
     state.history = [];
     saveHistory();
@@ -429,8 +1264,8 @@
     const item = state.history.find((x) => x.id === btn.dataset.id);
     if (!item) return;
 
-    outputEl.textContent = JSON.stringify(item.payload, null, 2);
     renderResult(item.payload);
+    setProfileEmpty('Upload resume to detect profile');
     switchTab('overview');
     setStatus(`Loaded history: ${item.file}`, false);
     showToast('History loaded', 'ok');
@@ -452,7 +1287,6 @@
     submitBtn.disabled = true;
     submitBtn.textContent = 'Analyzing...';
     setStatus('Analyzing resume with multi-agent pipeline...', false);
-    outputEl.textContent = '{\n  "status": "processing"\n}';
     startProgress();
 
     try {
@@ -466,44 +1300,29 @@
 
       const text = await res.text();
       const data = parseJson(text) || { detail: text };
-      outputEl.textContent = JSON.stringify(data, null, 2);
 
       if (!res.ok) {
         stopProgress(false);
-        setStatus('Analysis failed. Review details in JSON panel.', true);
+        setStatus(errorText(data, 'Analysis failed. Please try again.'), true);
         showToast('Analysis failed', 'error');
       } else {
         stopProgress(true);
         renderResult(data);
         addHistory(data);
-        
-        // Extract and auto-populate candidate name in behavioral form
-        try {
-          const nameFormData = new FormData();
-          nameFormData.append('file', file);
-          const nameRes = await fetch('/api/v1/resume/extract-name', {
-            method: 'POST',
-            body: nameFormData,
-          });
-          if (nameRes.ok) {
-            const nameData = await nameRes.json();
-            if (nameData.candidate_name) {
-              document.getElementById('candidateName').value = nameData.candidate_name;
-              showToast(`Auto-populated: ${nameData.candidate_name}`, 'ok');
-            }
-          }
-        } catch (err) {
-          // Silently fail if name extraction fails
+
+        if (!data.candidate_profile) {
+          await extractProfileFromFile(file, true);
         }
-        
+
         switchTab('overview');
         setStatus('Analysis completed successfully.', false);
         showToast('Analysis complete', 'ok');
       }
-    } catch (_) {
+    } catch (err) {
       stopProgress(false);
-      setStatus('Browser upload failed. Submitting with server fallback...', true);
-      form.submit();
+      const detail = err && err.message ? err.message : 'Unknown error';
+      setStatus(`Analysis request failed: ${detail}`, true);
+      showToast('Analysis failed', 'error');
     } finally {
       submitBtn.disabled = false;
       submitBtn.textContent = 'Analyze Resume';
@@ -569,13 +1388,14 @@
 
         const text = await res.text();
         const data = parseJson(text) || { detail: text };
-        outputEl.textContent = JSON.stringify(data, null, 2);
 
         if (!res.ok) {
-          setStatus('Workforce intelligence failed. Review details in JSON panel.', true);
+          setStatus(errorText(data, 'Workforce intelligence failed. Please try again.'), true);
           showToast('Workforce failed', 'error');
           return;
         }
+
+        state.workforce = data;
 
         // Render results on Workforce tab
         wfRole.textContent = (data.job_role && data.job_role.role) ? data.job_role.role : '-';
@@ -614,13 +1434,19 @@
   updateFileMeta();
   loadHistory();
 
-  const parsed = parseJson(outputEl.textContent || '');
+  const parsed = parseJson(initialResumeOutput ? initialResumeOutput.value : '');
   if (parsed && parsed.skills && parsed.intent_profile) {
     renderResult(parsed);
+    if (!parsed.candidate_profile) {
+      setProfileEmpty('Upload resume to refresh candidate profile');
+    }
     updateStep(5, true);
     setStatus('Loaded result.', false);
   } else {
     resetView();
+    if (parsed && parsed.detail) {
+      setStatus(errorText(parsed, 'Analysis failed. Please try again.'), true);
+    }
   }
 
   // =========================================================================
@@ -635,10 +1461,7 @@
   const analyzeBehavioralBtn = document.getElementById('analyzeBehavioralBtn');
   const clearBehavioralBtn = document.getElementById('clearBehavioralBtn');
   const behavioralStatus = document.getElementById('behavioralStatus');
-  const behavioralOutput = document.getElementById('behavioralOutput');
   const behavioralMetrics = document.getElementById('behavioralMetrics');
-  const copyBehavioralBtn = document.getElementById('copyBehavioralBtn');
-  const downloadBehavioralBtn = document.getElementById('downloadBehavioralBtn');
   const behavioralTabs = document.getElementById('behavioralTabs');
 
   // OCEAN Questions Definition (15 questions)
@@ -665,21 +1488,67 @@
     const container = document.getElementById("oceanQuestions");
     let html = "";
     for (const [qId, qData] of Object.entries(OCEAN_QUESTIONS)) {
-      html += `<div class="ocean-question mb-3 p-3 border-start border-4" style="border-color: var(--bs-primary)">
-        <label class="mb-3 d-block fw-semibold">${qId}. ${qData.question}</label>
-        <div class="ocean-options">`;
-      qData.options.forEach((option, idx) => {
-        const score = idx + 1;
+      html += `<div class="ocean-question mb-4 p-3 p-lg-4 rounded-4 border shadow-sm transition" id="oq-container-${qId}">
+        <label class="mb-3 d-block fw-semibold text-dark fs-5 mt-1">${qId}. ${qData.question}</label>
+        <div class="circular-scale-wrapper">
+          <div class="circular-scale-container">
+            <div class="scale-label left">Agree</div>
+            <div class="scale-options">`;
+      
+      // Render from Strongly Agree (5) on the left to Strongly Disagree (1) on the right
+      const scores = [5, 4, 3, 2, 1];
+      scores.forEach(score => {
+        const optionText = qData.options[score - 1];
+        const inputId = `ocean-${qId}-${score}`;
         html += `
-          <label class="option-label">
-            <input type="radio" name="${qId}" value="${score}" class="option-input" required>
-            <span class="option-text">${option}</span>
-          </label>`;
+              <label class="scale-option" title="${optionText}">
+                <input type="radio" class="option-input" name="${qId}" id="${inputId}" value="${score}" autocomplete="off" required>
+                <div class="circle"></div>
+              </label>`;
       });
-      html += `</div>
+
+      html += `
+            </div>
+            <div class="scale-label right">Disagree</div>
+          </div>
+        </div>
       </div>`;
     }
     container.innerHTML = html;
+
+    // Attach event listeners for progress bar and active container highlighting
+    const allRadios = container.querySelectorAll('.option-input');
+    allRadios.forEach(radio => {
+      radio.addEventListener('change', () => {
+        let answeredCount = 0;
+        const totalCount = Object.keys(OCEAN_QUESTIONS).length;
+        
+        Object.keys(OCEAN_QUESTIONS).forEach(k => {
+            const qsContainer = document.getElementById(`oq-container-${k}`);
+            const checked = container.querySelector(`input[name="${k}"]:checked`);
+            if (checked) {
+               answeredCount++;
+               qsContainer.classList.add('answered-question');
+               qsContainer.style.borderColor = 'var(--bs-success)';
+               qsContainer.style.boxShadow = '0 0.125rem 0.25rem rgba(25,135,84,0.15)'; // Success tint shadow
+            }
+        });
+
+        // Update progress bar
+        const oceanProgressBar = document.getElementById('oceanProgressBar');
+        const oceanProgressText = document.getElementById('oceanProgressText');
+        if (oceanProgressBar && oceanProgressText) {
+            const pct = Math.round((answeredCount / totalCount) * 100);
+            oceanProgressBar.style.width = pct + '%';
+            oceanProgressText.textContent = `${answeredCount} / ${totalCount} Answered`;
+            if (answeredCount === totalCount) {
+               oceanProgressBar.classList.remove('progress-bar-striped', 'progress-bar-animated');
+               oceanProgressText.classList.replace('bg-primary', 'bg-success');
+               oceanProgressText.innerText = "Completed!";
+            }
+        }
+      });
+    });
   }
 
   // Team Members Management
@@ -816,8 +1685,12 @@
 
     let html = '';
     teamScenarios.forEach(scenario => {
-      const compatScore = scenario.compatibility_score || 0;
-      const dynamicsScore = scenario.dynamics_score || 0;
+      // Execute frontend assessment logic to get real-time dynamic scores
+      scenario.compatibility_score = calculateTeamCompatibility(scenario);
+      scenario.dynamics_score = calculateTeamDynamics(scenario);
+      
+      const compatScore = scenario.compatibility_score;
+      const dynamicsScore = scenario.dynamics_score;
       const color = compatScore >= 70 ? 'success' : compatScore >= 50 ? 'warning' : 'danger';
       
       // Calculate dynamic team compatibility with current members
@@ -1069,16 +1942,16 @@
         ` : ''}
         
         <div class="mb-2">
-          <strong class="small text-success">✓ Strengths:</strong>
+          <strong class="small text-secondary">Strengths</strong>
           <ul class="list-unstyled small mb-0">
-            ${analysis.pros.map(p => `<li class="text-success">• ${p}</li>`).join('')}
+            ${analysis.pros.map(p => `<li>• ${p}</li>`).join('')}
           </ul>
         </div>
         
         <div>
-          <strong class="small text-danger">⚠ Challenges:</strong>
+          <strong class="small text-secondary">Challenges</strong>
           <ul class="list-unstyled small mb-0">
-            ${analysis.cons.map(c => `<li class="text-danger">• ${c}</li>`).join('')}
+            ${analysis.cons.map(c => `<li>• ${c}</li>`).join('')}
           </ul>
         </div>
       </div>`;
@@ -1235,9 +2108,9 @@
   
   function displayStressResults(data) {
     const stressColorMap = {
-      'Low': { bg: '#d4edda', text: '#155724', emoji: '✅' },
-      'Medium': { bg: '#fff3cd', text: '#856404', emoji: '⚠️' },
-      'High': { bg: '#f8d7da', text: '#721c24', emoji: '🔴' }
+      'Low': { className: 'stress-pill stress-pill-low' },
+      'Medium': { className: 'stress-pill stress-pill-medium' },
+      'High': { className: 'stress-pill stress-pill-high' }
     };
     
     const riskColorMap = {
@@ -1249,8 +2122,8 @@
     const stressStyle = stressColorMap[data.stress_level] || stressColorMap['Low'];
     const riskColor = riskColorMap[data.risk_level] || '#000';
     
-    document.getElementById('stressLevelDisplay').innerHTML = 
-      `<span style="background: ${stressStyle.bg}; color: ${stressStyle.text}; padding: 0.5rem 1rem; border-radius: 0.5rem;">${stressStyle.emoji} ${data.stress_level}</span>`;
+    document.getElementById('stressLevelDisplay').innerHTML =
+      `<span class="${stressStyle.className}">${data.stress_level}</span>`;
     
     document.getElementById('riskLevelDisplay').innerHTML = 
       `<span style="color: ${riskColor}; font-weight: bold;">${data.risk_level}</span>`;
@@ -1293,7 +2166,7 @@
     };
     
     stressStatus.style.display = 'block';
-    stressStatus.textContent = '⏳ Analyzing...';
+    stressStatus.textContent = 'Analyzing…';
     stressStatus.className = 'status ok';
     stressResults.style.display = 'none';
     
@@ -1311,21 +2184,21 @@
       const data = await response.json();
       
       if (data.status === 'success') {
-        displayStressResults(data);
-        stressStatus.textContent = '✅ Analysis complete!';
+        displayStressResults({ ...data, input: payload });
+        stressStatus.textContent = 'Analysis complete.';
         
         // Show alert if high risk
         if (data.risk_level === 'CRITICAL') {
           setTimeout(() => {
-            alert(`⚠️ HIGH RISK DETECTED!\n\n${data.stress_level} Stress Level\n${data.risk_level} Risk Classification\n\nImmediate action may be required.`);
+            alert(`High risk detected\n\nStress level: ${data.stress_level}\nRisk: ${data.risk_level}\n\nImmediate follow-up may be required.`);
           }, 300);
         }
       } else {
-        stressStatus.textContent = `❌ ${data.message || 'Analysis failed'}`;
+        stressStatus.textContent = data.message || 'Analysis failed';
         stressStatus.className = 'status error';
       }
     } catch (error) {
-      stressStatus.textContent = `❌ Error: ${error.message}`;
+      stressStatus.textContent = `Error: ${error.message}`;
       stressStatus.className = 'status error';
     }
   });
@@ -1335,6 +2208,89 @@
     stressResults.style.display = 'none';
     stressStatus.style.display = 'none';
   });
+
+  if (downloadResumePdfBtn) {
+    downloadResumePdfBtn.addEventListener('click', () => {
+      const resumeData = state.current || (state.history[0] && state.history[0].payload);
+      if (!resumeData) {
+        showToast('Analyze or load a resume first', 'error');
+        return;
+      }
+      downloadReportPdf('resume-analysis-report.pdf', 'Resume Analysis Report', (lines) => {
+        appendResumeReport(lines, resumeData, 'Resume Analysis', state.profile);
+        if (state.workforce) appendWorkforceReport(lines, state.workforce);
+      });
+      showToast('PDF report downloaded', 'ok');
+    });
+  }
+
+  if (downloadBehavioralPdfBtn) {
+    downloadBehavioralPdfBtn.addEventListener('click', () => {
+      if (!currentAnalysis) {
+        showToast('Run behavioral analysis first', 'error');
+        return;
+      }
+      downloadReportPdf('behavioral-analysis-report.pdf', 'Behavioral Analysis Report', (lines) => {
+        appendBehavioralReport(lines, currentAnalysis);
+      });
+      showToast('PDF report downloaded', 'ok');
+    });
+  }
+
+  if (downloadStressPdfBtn) {
+    downloadStressPdfBtn.addEventListener('click', () => {
+      if (!stressAnalysisHistory.length) {
+        showToast('Run stress analysis first', 'error');
+        return;
+      }
+      downloadReportPdf('stress-workload-report.pdf', 'Stress / Workload Report', (lines) => {
+        addTrendChart(lines, 'Stress Trend Graph', stressAnalysisHistory);
+        stressAnalysisHistory.forEach((entry, idx) => {
+          appendStressReport(lines, entry, `Stress / Workload Analysis ${idx + 1}`);
+        });
+      });
+      showToast('PDF report downloaded', 'ok');
+    });
+  }
+
+  if (downloadCurrentPdfBtn) {
+    downloadCurrentPdfBtn.addEventListener('click', () => {
+      const lines = [];
+      addReportHeader(lines, 'Current Candidate Dossier');
+      if (!buildCurrentCandidateReport(lines)) {
+        showToast('Run an analysis first to build a candidate report', 'error');
+        return;
+      }
+      downloadBlob(buildPdfBlob(lines), 'candidate-dossier-report.pdf');
+      showToast('Candidate report downloaded', 'ok');
+    });
+  }
+
+  if (downloadAllHistoryBtn) {
+    downloadAllHistoryBtn.addEventListener('click', () => {
+      const lines = [];
+      addReportHeader(lines, 'Comprehensive Platform History & Analytics');
+      if (!buildAllReports(lines)) {
+        showToast('Run at least one analysis first to build a report', 'error');
+        return;
+      }
+      downloadBlob(buildPdfBlob(lines), 'karmic-comprehensive-report.pdf');
+      showToast('Comprehensive report downloaded', 'ok');
+    });
+  }
+
+  if (toggleProfileBtn) {
+    toggleProfileBtn.addEventListener('click', () => {
+      const pSection = document.getElementById('candidatePersonalitySection');
+      if (pSection) {
+        if (pSection.style.display === 'none') {
+            pSection.style.display = 'block';
+        } else {
+            pSection.style.display = 'none';
+        }
+      }
+    });
+  }
 
   // Main tab switching
   mainTabs.addEventListener('click', (e) => {
@@ -1373,31 +2329,7 @@
     behavioralForm.reset();
     behavioralMetrics.style.display = 'none';
     behavioralStatus.style.display = 'none';
-    behavioralOutput.textContent = '{"message": "Fill the form and analyze to see results"}';
     showToast('Form cleared', 'ok');
-  });
-
-  // Copy behavioral JSON
-  copyBehavioralBtn.addEventListener('click', async () => {
-    try {
-      await navigator.clipboard.writeText(behavioralOutput.textContent || '{}');
-      showToast('JSON copied to clipboard', 'ok');
-    } catch (_) {
-      showToast('Copy failed', 'error');
-    }
-  });
-
-  // Download behavioral JSON
-  downloadBehavioralBtn.addEventListener('click', () => {
-    const blob = new Blob([behavioralOutput.textContent || '{}'], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'behavioral-analysis.json';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
   });
 
   // Collect Behavioral Data
@@ -1464,10 +2396,9 @@
       });
 
       const result = await response.json();
-      behavioralOutput.textContent = JSON.stringify(result, null, 2);
 
       if (!response.ok) {
-        behavioralStatus.textContent = 'Analysis failed. Review details in JSON panel.';
+        behavioralStatus.textContent = errorText(result, 'Analysis failed. Please try again.');
         behavioralStatus.classList.add('error');
         showToast('Analysis failed', 'error');
       } else {
@@ -1484,7 +2415,7 @@
       showToast('Network error', 'error');
     } finally {
       analyzeBehavioralBtn.disabled = false;
-      analyzeBehavioralBtn.textContent = '🚀 Analyze & Generate Report';
+      analyzeBehavioralBtn.textContent = 'Analyze and generate report';
     }
   });
 
@@ -1499,9 +2430,8 @@
 
     // Render Role Fit Tab
     const roleFitScore = response.role_fit_score || 0;
-    const scoreColor = roleFitScore >= 70 ? 'success' : roleFitScore >= 50 ? 'warning' : 'danger';
     const recommendations = response.role_recommendations || [];
-    document.getElementById("bRoleScore").innerHTML = `<span class="badge bg-${scoreColor} fs-5">${roleFitScore}</span>`;
+    document.getElementById("bRoleScore").innerHTML = `<span class="badge rounded-pill text-bg-light border fs-5 fw-semibold">${roleFitScore}</span>`;
     if (recommendations.length > 0) {
       document.getElementById("bRoleRec").innerHTML = recommendations.map(r => `<div class="mb-1">• ${r}</div>`).join('');
     } else {
@@ -1524,37 +2454,36 @@
       const conflicts = teamCompat.potential_conflicts || [];
       const teamRecs = teamCompat.recommendations || [];
       document.getElementById("bSynergies").innerHTML = synergies.length > 0 
-        ? synergies.map(s => `<div class="mb-1">✓ ${s}</div>`).join('')
+        ? synergies.map(s => `<div class="mb-1">• ${s}</div>`).join('')
         : '<span class="text-muted">No synergies detected</span>';
       document.getElementById("bConflicts").innerHTML = conflicts.length > 0 
-        ? conflicts.map(c => `<div class="mb-1">⚠ ${c}</div>`).join('')
+        ? conflicts.map(c => `<div class="mb-1">• ${c}</div>`).join('')
         : '<span class="text-muted">No conflicts detected</span>';
       document.getElementById("bTeamRec").innerHTML = teamRecs.length > 0 
-        ? teamRecs.map(r => `<div class="mb-1">💡 ${r}</div>`).join('')
+        ? teamRecs.map(r => `<div class="mb-1">• ${r}</div>`).join('')
         : '<span class="text-muted">Team is well-balanced</span>';
     }
 
     // Render Summary Tab
     const fitScore = response.behavioral_fit_score || response.final_score || 0;
-    const fitColor = fitScore >= 70 ? 'success' : fitScore >= 50 ? 'warning' : 'danger';
-    document.getElementById("bFitScore").innerHTML = `<span class="badge bg-${fitColor} fs-5">${fitScore}</span>`;
+    document.getElementById("bFitScore").innerHTML = `<span class="badge rounded-pill text-bg-light border fs-5 fw-semibold">${fitScore}</span>`;
     
     const overallAssessment = teamSize > 0 
-      ? (fitScore >= 70 && compatScore >= 70 ? "🟢 Excellent Fit" : 
-         fitScore >= 60 && compatScore >= 60 ? "🟡 Good Fit" : 
-         "🔴 Fair Match - Review Compatibility")
-      : (fitScore >= 70 ? "🟢 Strong Profile" : fitScore >= 60 ? "🟡 Suitable Profile" : "🔴 Needs Development");
+      ? (fitScore >= 70 && compatScore >= 70 ? 'Excellent fit'
+        : fitScore >= 60 && compatScore >= 60 ? 'Good fit'
+          : 'Fair match — review compatibility')
+      : (fitScore >= 70 ? 'Strong profile' : fitScore >= 60 ? 'Suitable profile' : 'Needs development');
     document.getElementById("bTeamFit").textContent = overallAssessment;
     
     const riskFlags = [];
-    if (fitScore < 50) riskFlags.push("⚠️ Low behavioral fit score");
-    if (teamSize > 0 && compatScore < 50) riskFlags.push("⚠️ Low team compatibility");
+    if (fitScore < 50) riskFlags.push('Low behavioral fit score');
+    if (teamSize > 0 && compatScore < 50) riskFlags.push('Low team compatibility');
     const teamConflicts = (teamCompat.potential_conflicts || []);
-    if (teamConflicts.length > 2) riskFlags.push("⚠️ Multiple team conflicts detected");
+    if (teamConflicts.length > 2) riskFlags.push('Multiple team conflicts detected');
     
     document.getElementById("bRiskFlags").innerHTML = riskFlags.length > 0
       ? riskFlags.map(f => `<div class="mb-1">${f}</div>`).join('')
-      : '<span class="text-success">✓ No major risks identified</span>';
+      : '<span class="text-muted">No major risks identified</span>';
     
     const candidateName = document.getElementById("candidateName").value;
     const jobRole = document.getElementById("jobRole").value;
@@ -1579,7 +2508,7 @@
     const strengthsList = personalityProfile.dynamic_strengths || personalityProfile.strengths || [];
     if (strengthsList && Array.isArray(strengthsList)) {
       document.getElementById("personalityStrengths").innerHTML = strengthsList
-        .map(s => `<div class="mb-2"><strong>✓</strong> ${s}</div>`)
+        .map(s => `<div class="mb-2">• ${s}</div>`)
         .join('');
     }
     
@@ -1590,10 +2519,9 @@
         .sort((a, b) => b[1] - a[1])
         .slice(0, 5)  // Top 5 roles
         .map(([role, score]) => {
-          const scoreColor = score >= 75 ? 'success' : score >= 60 ? 'warning' : 'danger';
           return `<div class="mb-2 d-flex justify-content-between align-items-center">
             <span>${role}</span>
-            <span class="badge bg-${scoreColor}">${score}%</span>
+            <span class="badge rounded-pill text-bg-light border">${score}%</span>
           </div>`;
         })
         .join('');
@@ -1606,7 +2534,7 @@
         roleDiv.innerHTML = '<h6 class="mb-3">Best Role Fits</h6>';
         roleSection.appendChild(roleDiv);
       }
-      roleDiv.innerHTML = '<h6 class="mb-3">🎯 Best Role Fits</h6>' + roleHtml;
+      roleDiv.innerHTML = '<h6 class="mb-3 fw-semibold">Best role fits</h6>' + roleHtml;
     }
     
     // Display AI recommendations
@@ -1617,12 +2545,14 @@
       const reasoning = recommendationData.reasoning || '';
       
       const recommendationDiv = document.createElement('div');
-      recommendationDiv.className = 'alert alert-info mt-3';
+      recommendationDiv.className = 'callout-muted mt-3 p-3';
       recommendationDiv.innerHTML = `
-        <strong>💡 AI Recommendation:</strong><br>
-        <span class="badge bg-primary mb-2">${bestRole}</span> 
-        <span class="badge bg-secondary">${confidence}% match</span>
-        <p class="mb-0 small mt-2">${reasoning}</p>
+        <div class="fw-semibold text-body mb-2">Recommendation</div>
+        <div class="mb-2">
+          <span class="badge rounded-pill text-bg-light border me-1">${bestRole}</span>
+          <span class="badge rounded-pill text-bg-light border">${confidence}% match</span>
+        </div>
+        <p class="mb-0 small text-muted">${reasoning}</p>
       `;
       
       const parentEl = document.getElementById("personalityStrengths").parentElement.parentElement;
@@ -1637,5 +2567,27 @@
     renderTeamScenarios();
     renderTeamComparison();
   }
+
+  // Bind dropdown menu proxy clicks
+  const proxyClicks = [
+    { sourceId: 'menuDownloadCurrentBtn', targetId: 'downloadCurrentPdfBtn' },
+    { sourceId: 'menuDownloadAllBtn', targetId: 'downloadAllHistoryBtn' },
+    { sourceId: 'menuDownloadResumeBtn', targetId: 'downloadResumePdfBtn' },
+    { sourceId: 'menuDownloadBehavioralBtn', targetId: 'downloadBehavioralPdfBtn' },
+    { sourceId: 'menuDownloadStressBtn', targetId: 'downloadStressPdfBtn' }
+  ];
+
+  proxyClicks.forEach(mapping => {
+    const sourceBtn = document.getElementById(mapping.sourceId);
+    if (sourceBtn) {
+      sourceBtn.addEventListener('click', () => {
+        const targetBtn = document.getElementById(mapping.targetId);
+        if (targetBtn) {
+          targetBtn.click();
+        }
+      });
+    }
+  });
+
 })();
 
